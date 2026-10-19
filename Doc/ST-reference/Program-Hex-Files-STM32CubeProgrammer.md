@@ -14,7 +14,7 @@
 11. Set your board to boot from flash mode
 12. Power cycle the board
 
-![Board Selection](../_htmresc/selectBoard.JPG)
-![Flash the Hex file](../_htmresc/flashHex.JPG)
+![Board Selection](_htmresc/selectBoard.JPG)
+![Flash the Hex file](_htmresc/flashHex.JPG)
 
 __NOTE__: Refer to [this chapter of the top README](../README.md#boot-modes) to understand the boot modes.

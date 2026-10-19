@@ -49,19 +49,19 @@ To fit the camera image to the NN input and to the display 3 options are provide
   - NN_Pipe: The frame is cropped to fit into a square with a side equal to the NN dimensions. The aspect ratio is kept but some pixels are lost on each side of the image.
   - Display_Pipe: The displayed frame is cropped identically to the nn pipe. You see what the NN sees but with an upscaled format of 480x480 (Max height of the lcd display)
 
-![ASPECT_RATIO_CROP](../_htmresc/ASPECT_RATIO_MODE1.png)
+![ASPECT_RATIO_CROP](_htmresc/ASPECT_RATIO_MODE1.png)
 
 - `ASPECT_RATIO_FIT`:
   - NN_Pipe: The frame is resized to fit into a square with a side equal to the NN dimensions. The aspect ratio is modified.
   - Display_Pipe: The frame is resized as the NN. The frame is resized to fit into a square with a side equal to the height of the lcd display.
 
-![ASPECT_RATIO_FIT](../_htmresc/ASPECT_RATIO_MODE2.png)
+![ASPECT_RATIO_FIT](_htmresc/ASPECT_RATIO_MODE2.png)
 
 - `ASPECT_RATIO_FULLSCREEN`:
   - NN_Pipe: The frame is resized to fit into a square with a side equal to the NN dimensions. The aspect ratio is modified.
   - Display_Pipe: The frame is displayed full screen; this maximizes the size of the display. The frame is not distorted. Aspect ratios of nn input and display are different.
 
-![ASPECT_RATIO_FIT](../_htmresc/ASPECT_RATIO_MODE3.png)
+![ASPECT_RATIO_FIT](_htmresc/ASPECT_RATIO_MODE3.png)
 
 1. Open [Inc/Application/STM32N6570-DK/Inc/app_config.h](../Application/STM32N6570-DK/Inc/app_config.h) or [Inc/Application/NUCLEO-N657X0-Q/Inc/app_config.h](../Application/NUCLEO-N657X0-Q/Inc/app_config.h)
 2. Change ASPECT_RATIO_MODE:

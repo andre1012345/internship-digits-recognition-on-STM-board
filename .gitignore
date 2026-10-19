@@ -15,8 +15,6 @@
 .metadata/
 .claude/
 
-# ST HTML resource images (icons, ST branding — not project content)
-_htmresc/
 
 # STM32CubeIDE launch configurations (machine-specific)
 *.launch
@@ -36,3 +34,9 @@ STM32_Programmer_CLI.exe
 .cproject
 makefile.targets
 
+# ...but keep the CubeIDE project of the application, so a fresh clone can be
+# imported and built (paths inside are relative to the project folder)
+!Application/STM32CubeIDE/.project
+!Application/STM32CubeIDE/.cproject
+!Application/STM32CubeIDE/makefile.targets
+!Application/STM32CubeIDE/STM32N6570-DK_GettingStarted_ImageClassification.launch

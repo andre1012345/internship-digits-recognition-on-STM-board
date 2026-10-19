@@ -1,0 +1,6 @@
+SIGN_TOOL := "C:/Program Files/STMicroelectronics/STM32Cube/STM32CubeProgrammer/bin/STM32_SigningTool_CLI.exe"
+
+Project_sign.bin: STM32N6570-DK_GettingStarted_ImageClassification.bin
+	$(SIGN_TOOL) -bin $< -nk -la 0x70100000 -t fsbl -o $@ -hv 2.3 -align -s
+
+secondary-outputs: Project_sign.bin

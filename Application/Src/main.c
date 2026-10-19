@@ -37,6 +37,20 @@
 #include "arm_math.h"
 
 #define TEST_MODE 0  /* 0 = live camera, 1 = synthetic digit cycling */
+/* DEBUG_DUMP_MS: every N ms print on UART the 32x32 camera input (left) and
+   the preprocessed network input (right) as ASCII art. 0 = disabled. */
+#define DEBUG_DUMP_MS 2000
+
+/* PREPROC_MODE: 0 = original global midpoint threshold,
+                 1 = local background subtraction (vignetting-robust) */
+#define PREPROC_MODE          1
+#define PREPROC_BG_RADIUS     6      /* background window = 13x13 px on the 32x32 frame */
+#define PREPROC_MIN_CONTRAST  0.06f  /* residuals below this are treated as background */
+#define PREPROC_STRETCH       0.7f   /* strokes at >= 70% of max residual map to 1.0 */
+
+/* Copy of the preprocessed network input (0..255) for the debug dump: the real
+   input buffer is reused by the NPU as activation memory during inference. */
+static uint8_t net_in_dbg[STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT];
 #if TEST_MODE
 #include "digits.h"
 #define DIGIT_HOLD_MS 3000  /* ms to hold each digit before advancing */
@@ -134,6 +148,9 @@ static void Display_NetworkOutput(uint32_t inference_ms);
 static void Network_Postprocess(void);
 static void Bubblesort(float *prob, int *classes, int size);
 static void LCD_init(void);
+#if DEBUG_DUMP_MS
+static void Debug_DumpInput(const uint8_t *raw_rgb, const uint8_t *net_in, int pred, int conf);
+#endif
 static void Security_Config(void);
 static void set_clk_sleep_mode(void);
 static void IAC_Config(void);
@@ -291,6 +308,8 @@ int main(void)
       int8_t        *dst = (int8_t *)nn_in;
       int n = STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT;
 
+#if PREPROC_MODE == 0
+      /* --- Mode 0 (original): global midpoint threshold --------------------- */
       /* Pass 1: find scene vmin/vmax */
       float vmin = 1.0f, vmax = 0.0f;
       for (int i = 0; i < n; i++)
@@ -312,8 +331,65 @@ int main(void)
         float val  = (255.0f - gray) / 255.0f;
         float v = (val <= midpt) ? 0.0f : (val - midpt) / hi_range;
         if (v > 1.0f) v = 1.0f;
+        net_in_dbg[i] = (uint8_t)(v * 255.0f);
         dst[3*i] = dst[3*i+1] = dst[3*i+2] = (int8_t)((int)(v * 255.0f) - 128);
       }
+#else
+      /* --- Mode 1: local background subtraction (removes lens vignetting) ----
+       * val = inverted luminance (ink -> bright). The background is estimated
+       * per pixel as the mean of a (2R+1)x(2R+1) window (integral image), then
+       * subtracted: slow shading such as vignetting cancels out, thin strokes
+       * remain. Small residuals are zeroed, the rest is stretched to [0,1]. */
+      const int W = STAI_NETWORK_IN_1_WIDTH, H = STAI_NETWORK_IN_1_HEIGHT;
+      static float val[STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT];
+      static float integ[(STAI_NETWORK_IN_1_WIDTH + 1) * (STAI_NETWORK_IN_1_HEIGHT + 1)];
+
+      for (int i = 0; i < n; i++)
+      {
+        float gray = 0.299f * src[3*i] + 0.587f * src[3*i+1] + 0.114f * src[3*i+2];
+        val[i] = (255.0f - gray) / 255.0f;
+      }
+      for (int x = 0; x <= W; x++) integ[x] = 0.0f;
+      for (int y = 1; y <= H; y++)
+      {
+        float row = 0.0f;
+        integ[y * (W + 1)] = 0.0f;
+        for (int x = 1; x <= W; x++)
+        {
+          row += val[(y - 1) * W + (x - 1)];
+          integ[y * (W + 1) + x] = integ[(y - 1) * (W + 1) + x] + row;
+        }
+      }
+
+      float dmax = 0.0f;
+      for (int y = 0; y < H; y++)
+      {
+        int y0 = (y - PREPROC_BG_RADIUS < 0) ? 0 : y - PREPROC_BG_RADIUS;
+        int y1 = (y + PREPROC_BG_RADIUS >= H) ? H - 1 : y + PREPROC_BG_RADIUS;
+        for (int x = 0; x < W; x++)
+        {
+          int x0 = (x - PREPROC_BG_RADIUS < 0) ? 0 : x - PREPROC_BG_RADIUS;
+          int x1 = (x + PREPROC_BG_RADIUS >= W) ? W - 1 : x + PREPROC_BG_RADIUS;
+          float sum = integ[(y1 + 1) * (W + 1) + (x1 + 1)] - integ[y0 * (W + 1) + (x1 + 1)]
+                    - integ[(y1 + 1) * (W + 1) + x0]       + integ[y0 * (W + 1) + x0];
+          float bg  = sum / (float)((y1 - y0 + 1) * (x1 - x0 + 1));
+          float d   = val[y * W + x] - bg;
+          if (d < PREPROC_MIN_CONTRAST) d = 0.0f;
+          val[y * W + x] = d;               /* reuse buffer: now holds the residual */
+          if (d > dmax) dmax = d;
+        }
+      }
+
+      /* Empty / flat scene: keep the input black so the network sees nothing */
+      float scale = (dmax < 0.05f) ? 0.0f : 1.0f / (PREPROC_STRETCH * dmax);
+      for (int i = 0; i < n; i++)
+      {
+        float v = val[i] * scale;
+        if (v > 1.0f) v = 1.0f;
+        net_in_dbg[i] = (uint8_t)(v * 255.0f);
+        dst[3*i] = dst[3*i+1] = dst[3*i+2] = (int8_t)((int)(v * 255.0f) - 128);
+      }
+#endif
       SCB_CleanInvalidateDCache_by_Addr(nn_in, STAI_NETWORK_IN_1_SIZE_BYTES);
     }
 
@@ -350,6 +426,18 @@ int main(void)
            nn_ranking[0],
            nn_top1_output_class_proba * 100.0f,
            ts[1] - ts[0]);
+#endif
+
+#if DEBUG_DUMP_MS
+    {
+      static uint32_t last_dump_ms = 0;
+      if (HAL_GetTick() - last_dump_ms >= DEBUG_DUMP_MS)
+      {
+        last_dump_ms = HAL_GetTick();
+        Debug_DumpInput(nn_raw, net_in_dbg, nn_ranking[0],
+                        (int)(nn_top1_output_class_proba * 100.0f));
+      }
+    }
 #endif
 
     /* Discard nn_out region (used by pp_input and pp_outputs variables) to avoid Dcache evictions during nn inference */
@@ -618,6 +706,42 @@ static void Bubblesort(float *prob, int *classes, int size)
     }
   }
 }
+
+#if DEBUG_DUMP_MS
+/**
+  * @brief  Print the 32x32 camera frame (inverted grayscale, MNIST polarity) and
+  *         the preprocessed int8 network input side by side as ASCII art.
+  *         Bright = digit stroke. Lines are prefixed so they are easy to parse.
+  */
+static void Debug_DumpInput(const uint8_t *raw_rgb, const uint8_t *net_in, int pred, int conf)
+{
+  static const char ramp[] = " .:-=+*#%@";   /* 10 levels, dark -> bright */
+  const int W = STAI_NETWORK_IN_1_WIDTH, H = STAI_NETWORK_IN_1_HEIGHT;
+  char line[2 * 32 + 8];
+
+  printf("[IMG] begin pred=%d conf=%d%% mode=%d  (left: camera, right: network input)\r\n", pred, conf, PREPROC_MODE);
+  for (int y = 0; y < H; y++)
+  {
+    int k = 0;
+    for (int x = 0; x < W; x++)
+    {
+      const uint8_t *px = &raw_rgb[3 * (y * W + x)];
+      int gray = (299 * px[0] + 587 * px[1] + 114 * px[2]) / 1000;
+      int v = 255 - gray;                                   /* invert: ink -> bright */
+      line[k++] = ramp[(v * 9 + 127) / 255];
+    }
+    line[k++] = ' '; line[k++] = '|'; line[k++] = ' ';
+    for (int x = 0; x < W; x++)
+    {
+      int v = net_in[y * W + x];                            /* 0..255 */
+      line[k++] = ramp[(v * 9 + 127) / 255];
+    }
+    line[k] = 0;
+    printf("[IMG] %s\r\n", line);
+  }
+  printf("[IMG] end\r\n");
+}
+#endif
 
 static void LCD_init(void)
 {

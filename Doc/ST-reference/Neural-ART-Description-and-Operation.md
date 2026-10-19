@@ -26,7 +26,7 @@ This GettingStarted project provides example memory pools for both boards: [NUCL
 
 The diagram below illustrates interactions among hardware blocks, the application, inference, and memory layout:
 
-![Inference application interactions](../_htmresc/Inference_Application_Interactions.png)
+![Inference application interactions](_htmresc/Inference_Application_Interactions.png)
 
 On the [ST Edge AI Developer Cloud](https://stedgeai-dc.st.com/home), a [custom Netron view](https://stedgeai-dc.st.com/assets/netron/index.html) visualizes memory usage across inference steps. Open `st_ai_output/<model_name>_c_info.json` in the web app to explore buffer sizes and lifetimes.
 
@@ -44,6 +44,6 @@ While Neural-ART supports most common layers, the application should also includ
 
 Interactions between `stedgeai` and the C compiler:
 
-![Tool interactions](../_htmresc/Tool_Interactions.png)
+![Tool interactions](_htmresc/Tool_Interactions.png)
 
 For more information on ST Edge AI and Neural-ART, see the [online documentation](https://stedgeai-dc.st.com/assets/embedded-docs/index.html).
