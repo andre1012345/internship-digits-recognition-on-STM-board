@@ -1,5 +1,25 @@
 # Test Results — STM32N6570-DK MNIST
 
+## Riepilogo: risultati finali (modello model_2026-10, firmware attuale)
+
+| Misura | Risultato | Sezione |
+|---|---|---|
+| Float sul PC, 500 img test MNIST | 96,6 % (96,81 % su 10 000) | "Modello riaddestrato" |
+| Int8 sulla board (NPU), stesse 500 img | 96,4 % — quantizzazione + deploy: −1 immagine | idem |
+| + pre-processing modo 1 / modo 0 | 94,6 % / 93,8 % | idem |
+| Tempo NPU | 118 µs per inferenza; sistema a 15 fps limitato dalla camera | "Camera run … per-stage timing" |
+| Camera, cifre MNIST su monitor (set A) | 10/10 cifre, 97,5 % dei frame | "set A con il modello riaddestrato" |
+| Camera, cifre scritte a mano su carta | 7/10 cifre stabili (primo tentativo) | "Cifre scritte a mano su foglio" |
+
+Le sezioni seguenti sono in **ordine cronologico** (maggio → ottobre 2026) e documentano come si è arrivati a questi
+risultati, compresi i tentativi con il modello di giugno (archiviato in `Model/archive_2026-06/`) e il primo test con
+immagini sintetiche (`TEST_MODE 1`, poi rimosso dal firmware). I numeri delle sezioni storiche si riferiscono al
+firmware e al modello di quel momento.
+
+---
+
+## Storico
+
 **Date:** 2026-05-26  
 **Model:** `mnist_cnn_32x32_OE_3_3_1`  
 **Board:** STM32N6570-DK, IMX335 camera  
@@ -379,3 +399,89 @@ Same setup as run 4 (camera fixed, only white page around the digit), firmware w
 **Caveat:** the border was introduced after looking at sets A/B/C, so this result is on data used for tuning. Parameters are now frozen (`PREPROC_MODE 1`, `BG_RADIUS 6`, `MIN_CONTRAST 0.06`, `STRETCH 0.7`, `BORDER 3`) for the independent tests (tablet and paper handwriting).
 
 Progression on set A: 40% → 75% → 82% → 89% → **100%**.
+
+---
+
+## 2026-10-22 pomeriggio — Modello riaddestrato (model_2026-10): benchmark MNIST
+
+**Perché.** I file di training del modello di giugno non erano più disponibili. Il modello è stato
+riaddestrato con la stessa architettura e lo stesso training (`Training/mnist_cnn_retrain_2026-10.ipynb`,
+seed 42), quantizzato int8 per-canale sulla ST Edge AI Developer Cloud e compilato in locale con
+ST Edge AI Core 4.0 (`Training/stedgeai/generate_model.bat`, stesse opzioni del modello di giugno).
+Il modello di giugno è archiviato in `Model/archive_2026-06/`.
+
+**Setup.** TEST_MODE 2, prime 500 immagini del test set MNIST ufficiale, PREPROC_BORDER 3.
+Log: `logs/2026-10-22_bench_mnist_model2026-10.txt`.
+
+| Stadio (stesse 500 immagini) | Modello giugno | Modello ott. 2026 |
+|---|---|---|
+| Float su PC (Keras) | n.d. (training perso) | **96.6 %** (483/500) — 96.81 % su tutte le 10 000 |
+| int8 su board, input diretto | 96.8 % (484) | **96.4 %** (482) |
+| int8 su board, preproc mode 0 | 94.4 % (472) | 93.8 % (469) |
+| int8 su board, preproc mode 1 (+bordo) | 96.0 % (480) | 94.6 % (473) |
+| Tempo NPU medio | 118.2 µs | 118.2 µs |
+
+**Lettura.**
+- Perdita dovuta alla quantizzazione + deploy sulla NPU, misurata ora per la prima volta sulla stessa
+  base: 483 → 482 immagini corrette (−1 su 500). La matrice di confusione della board ("direct") è
+  quasi identica a quella del modello float.
+- Le differenze tra i due modelli (2–7 immagini su 500) sono piccole: si tratta di due run di training
+  distinti con risultati simili, non di un miglioramento o peggioramento significativo.
+- Il tempo di inferenza non cambia (stessa architettura, stessi byte di pesi).
+
+### Camera run 2026-10-22 pomeriggio — set A con il modello riaddestrato (model_2026-10)
+
+Stesso setup e stessi parametri congelati del run precedente su set A (`PREPROC_MODE 1`, `BORDER 3`), debug dump attivo
+(13.7 fps). Log: `logs/2026-10-22_setA_model2026-10.txt` (1 884 frame). Finestra di 10 s (137 frame) per cifra,
+allineata all'inizio di ogni cifra.
+
+| Cifra | 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 |
+|---|---|---|---|---|---|---|---|---|---|---|
+| Frame corretti | 96% | 100% | 98% | 98% | 96% | 98% | 98% | 96% | 98% | 98% |
+| Confidenza media (frame corretti) | 100% | 98% | 100% | 100% | 100% | 98% | 100% | 100% | 98% | 97% |
+
+
+**Risultato: 10/10 cifre, 97.5% dei frame.** Gli unici frame sbagliati (sempre "1" a bassa confidenza) cadono ai bordi
+della finestra, cioè sullo schermo bianco tra una cifra e l'altra: mentre la cifra è inquadrata il riconoscimento è stabile.
+Il risultato coincide con quello del modello di giugno (10/10): il cambio di modello non modifica il comportamento con la camera.
+
+---
+
+## 2026-10-22 pomeriggio — Cifre scritte a mano su foglio (dati mai visti, parametri congelati)
+
+Modello model_2026-10, `PREPROC_MODE 1`, `BORDER 3`, nessun parametro modificato. Board ferma, foglio appeso,
+cifre inquadrate una alla volta nell'ordine 0→9, ~10 s ciascuna. Il pulsante USER per le etichette non ha scritto
+nel log (da verificare), quindi i blocchi sono assegnati alle cifre **in base all'ordine di presentazione**:
+i blocchi sono ben separati da frame incerti (< 70 %), ma resta una ricostruzione a posteriori.
+Esito per cifra: ✅ blocco stabile di frame corretti con confidenza ≥ 70 % · ⚠️ corretta solo a tratti · ❌ non riconosciuta.
+
+| Cifra | 1) Blu, tratto sottile | 2) Rosso sottile, 1 senza trattino | 3) Rosso ripassato (spesso) |
+|---|---|---|---|
+| 0 | ⚠️ (alterna 0/6) | ⚠️ | ⚠️ |
+| 1 | ❌ (scambiato per 7) | ❌ (incerto) * | ⚠️ |
+| 2 | ✅ | ✅ (con incerti) | ✅ 52 frame |
+| 3 | ✅ | ✅ | ✅ 33 |
+| 4 | ✅ | ✅ | ✅ 39 |
+| 5 | ✅ | ✅ | ✅ 32 |
+| 6 | ✅ | ⚠️ (a tratti 5) * | ✅ 37 |
+| 7 | ✅ | ❌ * | ⚠️ |
+| 8 | ✅ (instabile all'inizio) | ⚠️ | ✅ 41 |
+| 9 | ⚠️ (poi rotazione volontaria) | ❌ | ❌ |
+| **Cifre stabili** | **7/10** | **~5/10** | **7/10** |
+
+\* Test 2, ordine 0→9 confermato: i 42 frame "1" sicuri a inizio log sono **prima** del blocco dello 0 (fase di posizionamento), quindi non contano. Tra 6 e 8 i blocchi sono meno netti: assegnazione incerta.
+
+Log: `logs/2026-10-22_paper_model2026-10.txt`, `logs/2026-10-22_paper_one_short.txt`, `logs/2026-10-22_paper_red_thick.txt`.
+Foto: `figures/2026-10-22_paper_digits.jpg`, `..._paper_red_digits.jpg`, `..._paper_red_thick_digits.jpg`.
+
+**Lettura.**
+- Il test 1 è il risultato "ufficiale" (primo tentativo, nulla modificato): **7/10**.
+- **1 con trattino lungo** (stile italiano) → la rete risponde 7. L'1 corto in rosso sottile (test 2) però non è stato
+  riconosciuto con sicurezza: l'ipotesi del trattino (stile diverso da MNIST, raccolto negli USA → *domain shift*) resta
+  plausibile ma **non confermata**, perché il basso contrasto del rosso sottile è una spiegazione concorrente.
+- **Rosso sottile** peggiore del blu: in scala di grigi il rosso ha meno contrasto. **Ripassando il tratto** (test 3)
+  le cifre 2–6 e 8 diventano blocchi puliti, senza alcuna confusione: lo spessore del tratto conta (MNIST ha tratti spessi).
+- **0 e 9** restano difficili in tutti e tre i test (forme strette/allungate rispetto a MNIST).
+- Sono test singoli, su una sola persona e una sola sessione: indicano tendenze, non sono statistiche.
+
+Foto della board in funzione (camera puntata sul monitor, risultati e tempo di inferenza sul display): `figures/2026-10-22_board_in_funzione.jpg`.

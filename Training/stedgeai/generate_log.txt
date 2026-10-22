@@ -1,0 +1,94 @@
+ST Edge AI Core v4.0.0-20500 359356bb0
+PASS:   0%|          | 0/104 [00:00<?, ?it/s]PASS:  11%|#         | 11/104 [00:15<02:09,  1.39s/it]PASS:  18%|#8        | 19/104 [00:15<00:58,  1.44it/s]PASS:  23%|##3       | 24/104 [00:15<00:38,  2.06it/s]PASS:  32%|###1      | 33/104 [00:15<00:19,  3.64it/s]PASS:  48%|####8     | 50/104 [00:15<00:06,  7.79it/s]PASS:  67%|######7   | 70/104 [00:15<00:02, 14.37it/s]PASS:  85%|########4 | 88/104 [00:16<00:00, 22.04it/s]                                                       >>>> EXECUTING NEURAL ART COMPILER
+PASS:  85%|########4 | 88/104 [00:16<00:00, 22.04it/s]                                                         C:/Dev/Tools/ST/STEdgeAI/4.0/Utilities/windows/atonn.exe -i "C:/Users/Utente/internship/03_STM32N6570-DK/Training/stedgeai/out/mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1.onnx" --json-quant-file "C:/Users/Utente/internship/03_STM32N6570-DK/Training/stedgeai/out/mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1_Q.json" -g "network.c" --load-mdesc "C:/Dev/Tools/ST/STEdgeAI/4.0/Utilities/configs/stm32n6.mdesc" --load-mpool "C:/Users/Utente/internship/03_STM32N6570-DK/Training/stedgeai/stm32n6.mpool" --load-cdesc C:/Dev/Tools/ST/STEdgeAI/4.0/Utilities/configs/cortex-m55.cdesc --save-mpool-file "C:/Users/Utente/internship/03_STM32N6570-DK/Training/stedgeai/ws/neural_art__network/stm32n6.mpool" --out-dir-prefix "C:/Users/Utente/internship/03_STM32N6570-DK/Training/stedgeai/ws/neural_art__network/" --network-name "network" --native-float --cache-maintenance --enable-virtual-mem-pools -O3 --Os --Omax-ca-pipe 4 --Ocache-opt --enable-epoch-controller --Oauto-sched --output-info-file "c_info.json" --generate-stai
+PASS:  85%|########4 | 88/104 [00:16<00:00, 22.04it/s]                                                       <<<< DONE EXECUTING NEURAL ART COMPILER
+PASS:  85%|########4 | 88/104 [00:17<00:00, 22.04it/s]                                                       >>>> EXECUTING EPOCH_CONTROLLER POST_PROCESSING
+PASS:  85%|########4 | 88/104 [00:17<00:00, 22.04it/s]PASS:  85%|########4 | 88/104 [00:30<00:00, 22.04it/s]                                                       <<<< DONE EXECUTING EPOCH_CONTROLLER POST_PROCESSING
+PASS:  85%|########4 | 88/104 [00:42<00:00, 22.04it/s]PASS:  94%|#########4| 98/104 [00:42<00:03,  1.52it/s]                                                       
+ Exec/report summary (generate)
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ model file         :   C:\Users\Utente\internship\03_STM32N6570-DK\Training\model_2026-10\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2.onnx   
+ type               :   onnx                                                                                                                         
+ c_name             :   network                                                                                                                      
+ compression        :   lossless                                                                                                                     
+ options            :   allocate-inputs, allocate-outputs, use-lite-runtime, use-st-ai                                                               
+ optimization       :   balanced                                                                                                                     
+ target/series      :   stm32n6npu                                                                                                                   
+ workspace dir      :   C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\ws                                                             
+ output dir         :   C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out                                                            
+ model_fmt          :   float                                                                                                                        
+ model_name         :   mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2                                                                           
+ model_hash         :   0xcb05ddff85ee7170db5c431ecec5fc40                                                                                           
+ params #           :   28,394 items (110.91 KiB)                                                                                                    
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ input 1/1          :   'Input_0_out_0', int8(1x32x32x3), 3.00 KBytes, QLinear(0.003921569,-128,int8), activations                                   
+ output 1/1         :   'Quantize_25_out_0', int8(1x10), 10 Bytes, QLinear(0.003921569,-128,int8), activations                                       
+ macc               :   2,825,445                                                                                                                    
+ weights (ro)       :   28,289 B (27.63 KiB) (1 segment) / -85,287(-75.1%) vs float model                                                            
+ activations (rw)   :   7,168 B (7.00 KiB) (1 segment) *                                                                                             
+ ram (total)        :   7,168 B (7.00 KiB) = 7,168 + 0 + 0                                                                                           
+ ----------------------------------------------------------------------------------------------------------------------------------------------------
+ (*) 'input'/'output' buffers are allocated in the activations buffer
+PASS:  94%|#########4| 98/104 [00:42<00:03,  1.52it/s]                                                      
+Computing AI RT data/code size (target=stm32n6npu)..
+PASS:  94%|#########4| 98/104 [00:42<00:03,  1.52it/s]                                                       -> compiler "gcc:arm-none-eabi-gcc" is not in the PATH
+PASS:  94%|#########4| 98/104 [00:42<00:03,  1.52it/s]                                                      
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Compilation details
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                         ---------------------------------------------------------------------------------
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Compiler version: 1.1.3-262
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Compiler arguments:  -i C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1.onnx --json-quant-file C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1_Q.json -g network.c --load-mdesc C:\Dev\Tools\ST\STEdgeAI\4.0\Utilities\configs\stm32n6.mdesc --load-mpool C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\stm32n6.mpool --load-cdesc C:\Dev\Tools\ST\STEdgeAI\4.0\Utilities\configs\cortex-m55.cdesc --save-mpool-file C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\ws\neural_art__network\stm32n6.mpool --out-dir-prefix C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\ws\neural_art__network/ --network-name network --native-float --cache-maintenance --enable-virtual-mem-pools -O3 --Os --Omax-ca-pipe 4 --Ocache-opt --enable-epoch-controller --Oauto-sched --output-info-file c_info.json --generate-stai
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      ====================================================================================
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Memory usage information  (input/output buffers are included in activations)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                         ---------------------------------------------------------------------------------
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	flexMEM    [0x34000000 - 0x34000000]:          0  B /          0  B  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	cpuRAM1    [0x34064000 - 0x34064000]:          0  B /          0  B  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	cpuRAM2    [0x34100000 - 0x34200000]:          0  B /      1.000 MB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	npuRAM3    [0x34200000 - 0x34270000]:          0  B /    448.000 kB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	npuRAM4    [0x34270000 - 0x342E0000]:          0  B /    448.000 kB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	npuRAM5    [0x342E0000 - 0x34350000]:      7.000 kB /    448.000 kB  (  1.56 % used) -- weights:          0  B (  0.00 % used)  activations:      7.000 kB (  1.56 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	npuRAM6    [0x34350000 - 0x343C0000]:          0  B /    448.000 kB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	octoFlash  [0x71000000 - 0x78000000]:     27.626 kB /    112.000 MB  (  0.02 % used) -- weights:     27.626 kB (  0.02 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	hyperRAM   [0x90000000 - 0x92000000]:          0  B /     32.000 MB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Total:                                            34.626 kB                                  -- weights:     27.626 kB                  activations:      7.000 kB
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      ====================================================================================
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Used memory ranges
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                         ---------------------------------------------------------------------------------
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	npuRAM5    [0x342E0000 - 0x34350000]: 0x342E0000-0x342E1C00
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      	octoFlash  [0x71000000 - 0x78000000]: 0x71000000-0x71006E90
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      ====================================================================================
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Epochs details
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                         ---------------------------------------------------------------------------------
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      Total number of epochs                               7
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      >> pure software (SW) epochs                         1
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      >> hybrid epochs (using both software and hardware)  0
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      >> pure hardware (HW or EC) epochs                   6  (implemented in 1 epoch controller blobs/meta epochs)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      +------------------+------+---------+
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      | epoch ID         | Type | Details |
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      +------------------+------+---------+
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      | epochs    2 -> 7 |  EC  |         |
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      | epoch_8          |  SW  | Softmax |
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      +------------------+------+---------+
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      ====================================================================================
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       Generated files (9)
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       --------------------------------------------------------------------------------------------------------------------------------------
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1.onnx
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1_Q.json
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\network.c
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\network_atonbuf.xSPI2.raw
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\network_c_info.json
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\stai_network.c
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\stai_network.h
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\network.h
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                       C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\network_ecblobs.h
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]                                                      
+Creating txt report file C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\network_generate_report.txt
+PASS:  94%|#########4| 98/104 [00:43<00:03,  1.52it/s]PASS:  99%|#########9| 103/104 [00:43<00:00,  1.74it/s]Do you allow statistics to improve the command line? (y)es / (n)o
+PASS:  99%|#########9| 103/104 [01:00<00:00,  1.74it/s]PASS: 100%|##########| 104/104 [01:02<00:00,  1.31s/it]                                                       elapsed time (GENERATE): 138.484s
+Fatal Python error: _enter_buffered_busy: could not acquire lock for <_io.BufferedReader name='<stdin>'> at interpreter shutdown, possibly due to daemon threads
+Python runtime state: finalizing (tstate=000001B7ECA8E8B0)
+
+Current thread 0x00003e64 (most recent call first):
+<no Python frame>

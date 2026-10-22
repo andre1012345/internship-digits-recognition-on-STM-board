@@ -36,7 +36,7 @@
 #include "stlogo.h"
 #include "arm_math.h"
 
-#define TEST_MODE 0  /* 0 = live camera, 1 = cycle digits.h images, 2 = MNIST benchmark (no camera) */
+#define TEST_MODE 0  /* 0 = live camera, 2 = MNIST benchmark on 500 test images (no camera) */
 /* BENCH_PERIOD_FRAMES: every N frames print per-stage timing statistics
    (microseconds, DWT cycle counter) on UART. 0 = disabled. */
 #define BENCH_PERIOD_FRAMES 100
@@ -57,10 +57,6 @@
 static uint8_t net_in_dbg[STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT];
 #if TEST_MODE == 2
 #include "mnist_test.h"
-#endif
-#if TEST_MODE == 1
-#include "digits.h"
-#define DIGIT_HOLD_MS 3000  /* ms to hold each digit before advancing */
 #endif
 
 CLASSES_TABLE;
@@ -488,7 +484,6 @@ int main(void)
    *  LTDC layer 2  — classification results overlaid on camera preview
    *  USART1        — per-frame log at 115200 baud
    *    live mode : "[digit] confidence%  (Xms)"
-   *    TEST_MODE : "digit=N  predicted=M  OK|WRONG  (Xms)"
    * =========================================================================
    */
 
@@ -500,23 +495,11 @@ int main(void)
   while (1)
   {
     uint32_t cy0 = Cycles_Now();
+
     CameraPipeline_IspUpdate();
     uint32_t cy1 = Cycles_Now();
 
     /* --- [1] FRAME ACQUISITION --------------------------------------------- */
-#if TEST_MODE == 1
-    /* Cycle through digits 0-9, advancing every DIGIT_HOLD_MS milliseconds */
-    static int     current_digit   = 0;
-    static uint32_t digit_start_ms = 0;
-    if (digit_start_ms == 0) digit_start_ms = HAL_GetTick();
-    if (HAL_GetTick() - digit_start_ms >= DIGIT_HOLD_MS)
-    {
-      current_digit  = (current_digit + 1) % 10;
-      digit_start_ms = HAL_GetTick();
-      printf("\r\n>>> Switching to digit %d <<<\r\n", current_digit);
-    }
-    memcpy(nn_raw, digits_table[current_digit], sizeof(nn_raw));
-#else
 #if DCMIPP_NN_NEEDS_CROP
     /* Start NN camera single capture Snapshot into intermediate buffer */
     CameraPipeline_NNPipe_Start(dcmipp_out_nn, CMW_MODE_SNAPSHOT);
@@ -539,7 +522,6 @@ int main(void)
     /* Invalidate dcache for the DMA-written nn_raw before CPU reads it */
     SCB_InvalidateDCache_by_Addr(nn_raw, sizeof(nn_raw));
 #endif
-#endif /* !TEST_MODE */
 
     uint32_t cy2 = Cycles_Now();
 
@@ -576,18 +558,10 @@ int main(void)
     Display_NetworkOutput(npu_us);
     uint32_t cy6 = Cycles_Now();
 
-#if TEST_MODE == 1
-    printf("digit=%d  predicted=%d  conf=%.0f%%  %s  (%luus)\r\n",
-           current_digit, nn_ranking[0],
-           nn_top1_output_class_proba * 100.0f,
-           (nn_ranking[0] == current_digit) ? "OK" : "WRONG",
-           (unsigned long)npu_us);
-#else
     printf("[%d] %.0f%%  (%luus)\r\n",
            nn_ranking[0],
            nn_top1_output_class_proba * 100.0f,
            (unsigned long)npu_us);
-#endif
     uint32_t cy7 = Cycles_Now();
 
 #if DEBUG_DUMP_MS

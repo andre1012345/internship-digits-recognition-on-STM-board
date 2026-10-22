@@ -1,0 +1,136 @@
+ST Edge AI Core v4.0.0-20500 359356bb0
+Created date          : 2026-10-22 13:06:02
+Parameters            : generate --model ..\model_2026-10\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2.onnx --target stm32n6 --st-neural-art dc_equivalent@neuralart.json --name network --output out --workspace ws
+
+Model name - mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+m_id   layer (original)                                     oshape                 param/size             macc                     connected to 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+0      input ()                                             [b:1,h:32,w:32,c:3]                                                                 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+7      functional_1_dense..eOp0_const (DequantizeLinear)    [b:64]                 64/256                                                       
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+8      functional_1_dense..tput_const (DequantizeLinear)    [b:64,c:64]            4,096/16,384                                                 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+9      functional_1_outpu..eOp0_const (DequantizeLinear)    [b:10]                 10/40                                                        
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+10     functional_1_outpu..tput_const (DequantizeLinear)    [b:64,c:10]            640/2,560                                                    
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+11     functional_1_conv2..iasAdd__60 (Transpose)           [b:1,h:32,w:32,c:3]                          1,536                            input 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+12     functional_1_conv2..ear_Output (QuantizeLinear)      [b:1,h:32,w:32,c:3]                          6,144   functional_1_conv2..iasAdd__60 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+13     functional_1_conv2..ear_Output (DequantizeLinear)    [b:1,h:32,w:32,c:3]                          6,144   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+14     functional_1_conv2d_1_Relu0 (Conv)                   [b:1,h:32,w:32,c:16]   448/1,792           442,384   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+15     functional_1_conv2..ear_Output (QuantizeLinear)      [b:1,h:32,w:32,c:16]                        32,768      functional_1_conv2d_1_Relu0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+16     functional_1_conv2..ear_Output (DequantizeLinear)    [b:1,h:32,w:32,c:16]                        32,768   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+17     functional_1_max_p..MaxPool2d0 (MaxPool)             [b:1,h:16,w:16,c:16]                        16,384   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+18     functional_1_max_p..ear_Output (QuantizeLinear)      [b:1,h:16,w:16,c:16]                         8,192   functional_1_max_p..MaxPool2d0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+19     functional_1_max_p..ear_Output (DequantizeLinear)    [b:1,h:16,w:16,c:16]                         8,192   functional_1_max_p..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+20     functional_1_conv2d_1_2_Relu0 (Conv)                 [b:1,h:16,w:16,c:32]   4,640/18,560      1,179,680   functional_1_max_p..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+21     functional_1_conv2..ear_Output (QuantizeLinear)      [b:1,h:16,w:16,c:32]                        16,384    functional_1_conv2d_1_2_Relu0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+22     functional_1_conv2..ear_Output (DequantizeLinear)    [b:1,h:16,w:16,c:32]                        16,384   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+23     functional_1_max_p..MaxPool2d0 (MaxPool)             [b:1,h:8,w:8,c:32]                           8,192   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+24     functional_1_max_p..ear_Output (QuantizeLinear)      [b:1,h:8,w:8,c:32]                           4,096   functional_1_max_p..MaxPool2d0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+25     functional_1_max_p..ear_Output (DequantizeLinear)    [b:1,h:8,w:8,c:32]                           4,096   functional_1_max_p..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+26     functional_1_conv2d_2_1_Relu0 (Conv)                 [b:1,h:8,w:8,c:64]     18,496/73,984     1,179,712   functional_1_max_p..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+27     functional_1_conv2..ear_Output (QuantizeLinear)      [b:1,h:8,w:8,c:64]                           8,192    functional_1_conv2d_2_1_Relu0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+28     functional_1_conv2..ear_Output (DequantizeLinear)    [b:1,h:8,w:8,c:64]                           8,192   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+29     functional_1_globa..2d_1_Mean0 (GlobalAveragePool)   [b:1,h:1,w:1,c:64]                           4,096   functional_1_conv2..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+30     functional_1_globa..ear_Output (QuantizeLinear)      [b:1,h:1,w:1,c:64]                             128   functional_1_globa..2d_1_Mean0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+31     functional_1_globa..ear_Output (DequantizeLinear)    [b:1,h:1,w:1,c:64]                             128   functional_1_globa..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+32     functional_1_globa..ueeze__270 (Squeeze)             [b:1,c:64]                                           functional_1_globa..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+33     functional_1_globa..ear_Output (QuantizeLinear)      [b:1,c:64]                                     128   functional_1_globa..ueeze__270 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+34     functional_1_globa..ear_Output (DequantizeLinear)    [b:1,c:64]                                     128   functional_1_globa..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+35     functional_1_dense_1_Relu0 (Gemm)                    [b:1,c:64]                                   4,160   functional_1_globa..ear_Output 
+                                                                                                                 functional_1_dense..tput_const 
+                                                                                                                 functional_1_dense..eOp0_const 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+36     functional_1_dense..ear_Output (QuantizeLinear)      [b:1,c:64]                                     128       functional_1_dense_1_Relu0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+37     functional_1_dense..ear_Output (DequantizeLinear)    [b:1,c:64]                                     128   functional_1_dense..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+38     functional_1_output_1_BiasAdd0 (Gemm)                [b:1,c:10]                                     650   functional_1_dense..ear_Output 
+                                                                                                                 functional_1_outpu..tput_const 
+                                                                                                                 functional_1_outpu..eOp0_const 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+39     functional_1_outpu..ear_Output (QuantizeLinear)      [b:1,c:10]                                      20   functional_1_output_1_BiasAdd0 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+40     functional_1_outpu..ear_Output (DequantizeLinear)    [b:1,c:10]                                      20   functional_1_outpu..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+41     output_QuantizeLinear_Input (Softmax)                [b:1,c:10]                                     150   functional_1_outpu..ear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+42     output_QuantizeLinear_Output (QuantizeLinear)        [b:1,c:10]                                      20      output_QuantizeLinear_Input 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+43     output (DequantizeLinear)                            [b:1,c:10]                                      20     output_QuantizeLinear_Output 
+------ ---------------------------------------------------- ---------------------- --------------- ----------- -------------------------------- 
+model: macc=2,989,344 weights=113,576 activations=-- io=--
+
+
+
+
+
+Compilation details
+------------------------------------------------------------------------------------
+Compiler version: 1.1.3-262
+Compiler arguments:  -i C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1.onnx --json-quant-file C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\out\mnist_cnn_32x32_PerChannel_quant_mnist_calib_npz_2_OE_3_3_1_Q.json -g network.c --load-mdesc C:\Dev\Tools\ST\STEdgeAI\4.0\Utilities\configs\stm32n6.mdesc --load-mpool C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\stm32n6.mpool --load-cdesc C:\Dev\Tools\ST\STEdgeAI\4.0\Utilities\configs\cortex-m55.cdesc --save-mpool-file C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\ws\neural_art__network\stm32n6.mpool --out-dir-prefix C:\Users\Utente\internship\03_STM32N6570-DK\Training\stedgeai\ws\neural_art__network/ --network-name network --native-float --cache-maintenance --enable-virtual-mem-pools -O3 --Os --Omax-ca-pipe 4 --Ocache-opt --enable-epoch-controller --Oauto-sched --output-info-file c_info.json --generate-stai
+====================================================================================
+
+Memory usage information  (input/output buffers are included in activations)
+------------------------------------------------------------------------------------
+	flexMEM    [0x34000000 - 0x34000000]:          0  B /          0  B  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+	cpuRAM1    [0x34064000 - 0x34064000]:          0  B /          0  B  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+	cpuRAM2    [0x34100000 - 0x34200000]:          0  B /      1.000 MB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+	npuRAM3    [0x34200000 - 0x34270000]:          0  B /    448.000 kB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+	npuRAM4    [0x34270000 - 0x342E0000]:          0  B /    448.000 kB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+	npuRAM5    [0x342E0000 - 0x34350000]:      7.000 kB /    448.000 kB  (  1.56 % used) -- weights:          0  B (  0.00 % used)  activations:      7.000 kB (  1.56 % used)
+	npuRAM6    [0x34350000 - 0x343C0000]:          0  B /    448.000 kB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+	octoFlash  [0x71000000 - 0x78000000]:     27.626 kB /    112.000 MB  (  0.02 % used) -- weights:     27.626 kB (  0.02 % used)  activations:          0  B (  0.00 % used)
+	hyperRAM   [0x90000000 - 0x92000000]:          0  B /     32.000 MB  (  0.00 % used) -- weights:          0  B (  0.00 % used)  activations:          0  B (  0.00 % used)
+---
+Total:                                            34.626 kB                                  -- weights:     27.626 kB                  activations:      7.000 kB                   
+====================================================================================
+
+
+Used memory ranges
+------------------------------------------------------------------------------------
+	npuRAM5    [0x342E0000 - 0x34350000]: 0x342E0000-0x342E1C00
+	octoFlash  [0x71000000 - 0x78000000]: 0x71000000-0x71006E90
+====================================================================================
+
+Epochs details
+------------------------------------------------------------------------------------
+Total number of epochs                               7
+>> pure software (SW) epochs                         1
+>> hybrid epochs (using both software and hardware)  0
+>> pure hardware (HW or EC) epochs                   6  (implemented in 1 epoch controller blobs/meta epochs)
+---
++------------------+------+---------+
+| epoch ID         | Type | Details |
++------------------+------+---------+
+| epochs    2 -> 7 |  EC  |         |
+| epoch_8          |  SW  | Softmax |
++------------------+------+---------+
+====================================================================================

@@ -2,35 +2,49 @@
 
 *Creato il 22/10/2026, con la board disponibile a casa per un periodo limitato. Obiettivo: raccogliere tutte le metriche per analisi e conclusioni prima di restituirla.*
 
+**Modello di riferimento della tesi: model_2026-10** (riaddestrato il 22/10, catena completa e riproducibile, vedi `Training/README.md`). Le misure fatte col modello di giugno (archiviato in `Model/archive_2026-06/`) restano in `Doc/test-results.md` come prove precedenti.
+
 ## Principio: misurare la perdita anello per anello
 
 | Anello | Cosa si misura | Come | Board? |
 |---|---|---|---|
-| A. Modello float | accuratezza su MNIST test (10 000 img) | notebook Colab | no |
+| A. Modello float | accuratezza su MNIST test | notebook Colab | no |
 | B. Modello int8 sulla board, input ideale | perdita di **quantizzazione + deploy** (B − A) | `TEST_MODE 2`, pipeline *direct*, 500 img test MNIST | **sì** |
 | C. + pre-processing della board | perdita del **pre-processing** (C − B), modo 0 e modo 1 | `TEST_MODE 2`, pipeline *preproc0* / *preproc1* | **sì** |
 | D. + camera e ottica (cifre MNIST su monitor) | perdita di **ottica/inquadratura** (D − C) | pagina MNIST Test Card, set A/B/C | **sì** |
-| E. + cifre scritte a mano su carta | perdita da **stile di scrittura reale** (E − D) | protocollo carta (sotto) | **sì** |
+| E. + cifre scritte a mano su carta | perdita da **stile di scrittura reale** (E − D) | foglio davanti alla camera | **sì** |
+
+## Catena delle perdite — model_2026-10 (22/10/2026)
+
+| Anello | Risultato | Perdita rispetto all'anello precedente |
+|---|---|---|
+| A. Float sul PC | **96,6 %** sulle stesse 500 img (96,81 % su 10 000) | — |
+| B. Int8 sulla board, input ideale | **96,4 %** (482/500) | quantizzazione + deploy: **−1 immagine su 500** |
+| C. + pre-processing modo 1 (+ bordo) | 94,6 % | −1,8 punti |
+| C'. + pre-processing modo 0 (originale ST) | 93,8 % | −2,6 punti |
+| D. + camera, monitor (set A) | **10/10 cifre**, 97,5 % dei frame | errori solo nelle transizioni tra cifre |
+| E. + carta scritta a mano (blu, primo tentativo) | **7/10 cifre** stabili | domain shift: stile (1 con trattino → 7, ipotesi non confermata), spessore del tratto, forme di 0 e 9 |
 
 ## Checklist
 
-### Con la board (priorità)
+### Con la board
 
-- [x] **1. Benchmark MNIST automatico** (22/10): B = **96,8%**, C0 = **94,4%**, C1 = **96,4%** su 500 immagini del test set; NPU **118 µs**/inferenza (≈ 23,7 GMAC/s); pre-processing 115 µs (modo 0) / 162 µs (modo 1). Dettagli in `Doc/test-results.md`.
-- [x] **2. Tempi per fase con la camera** (22/10): 66,0 ms/frame → **15,1 fps**; acquisizione camera 60,3 ms (91%), display 3,8 ms, UART 1,6 ms, pre-processing 176 µs, **NPU 120 µs (0,2%)**. Sistema limitato dalla camera, non dalla rete.
-- [~] **3. Camera + monitor, set B e C** (modo 1): **set B fatto** (22/10) → 9/10 cifre, 87% dei frame; il **9 è letto come 8 anche nel set B**, mentre senza camera il 9 è corretto (52/54) → errore introdotto dal percorso ottico. Manca il set C.
-- [ ] **4. A/B controllato modo 0 vs modo 1** stessa inquadratura, stesso set.
-- [ ] **5. Carta scritta a mano**: 10 cifre × 3 scritture diverse (pennarello nero, foglio bianco), 10 s ciascuna.
-- [ ] **6. Robustezza** (modo 1, set A): distanza 8 / 12 / 18 / 25 cm; luce forte / normale / debole; rotazione ±15°.
-- [ ] 7. Foto della board in funzione e del banco di prova (per la tesi).
+- [x] **1. Benchmark MNIST automatico**: giugno e model_2026-10 (sopra). NPU **118 µs**/inferenza.
+- [x] **2. Tempi per fase con la camera**: 66,0 ms/frame → **15,1 fps**; camera 91 %, **NPU 0,2 %**. Sistema limitato dalla camera.
+- [x] **3. Camera + monitor**: set A, B, C (modello di giugno); bordo 3 px → 10/10 sul set A; set A ripetuto con model_2026-10 → 10/10.
+- [x] **5. Carta scritta a mano** (model_2026-10): blu (tratto spesso, inchiostro quasi esaurito) 7/10; rosso sottile con 1 corto ~5/10 (l'1 corto non è riconosciuto); rosso ripassato 7/10 (cifre 2–6 e 8 pulite). Una sola persona e una sessione: tendenze, non statistiche.
+- [ ] 4. A/B controllato modo 0 vs modo 1 con la camera (facoltativo: il confronto c'è già nel benchmark).
+- [ ] 6. Robustezza (distanza, luce, rotazione) — facoltativo.
+- [~] 7. Foto: fogli fatti (`Doc/figures/`); manca una foto della board in funzione sul banco di prova.
+- [ ] Pulsante USER per le etichette: non ha scritto nel log, da verificare se serve ancora.
 
 ### Senza board
 
-- [x] Occupazione di memoria (dalla build del 19/10, vedi sotto).
-- [x] Complessità del modello: ~2,81 M MAC per inferenza (calcolata dall'architettura).
-- [ ] Accuratezza float (anello A): rieseguire `mnist_cnn_augmented.ipynb` su Colab — gli output del notebook non sono stati salvati e i file ONNX non sono più disponibili.
-- [ ] Energia: misura diretta non praticabile (corrente MCU solo dal connettore CN2 dissaldando resistori, manuale UM3300 §7.4.6). Usare valori dichiarati da ST come **stima**, oppure misuratore USB sul consumo totale della board.
-- [ ] Applicazioni reali e limiti (discussione).
+- [x] Occupazione di memoria (sotto).
+- [x] Complessità del modello: ~2,81 M MAC per inferenza.
+- [x] Accuratezza float (anello A): rieseguito su Colab (`Training/mnist_cnn_retrain_2026-10.ipynb`).
+- [ ] Energia: misura diretta non praticabile (corrente MCU solo dal connettore CN2 dissaldando resistori, manuale UM3300 §7.4.6). Usare valori dichiarati da ST come **stima**, oppure misuratore USB sul consumo totale.
+- [ ] Applicazioni reali, limiti, sviluppi futuri (augmentation sullo spessore del tratto, classe "nessuna cifra", autoencoder come rilevatore di fuori-distribuzione).
 
 ## Dati già raccolti
 
@@ -57,24 +71,3 @@ Ripartizione del codice + costanti per componente: camera/ISP 112 KB · applicaz
 | Dense 64→64 | 4 096 |
 | Dense 64→10 | 640 |
 | **Totale** | **≈ 2,81 M MAC** |
-
-### Catena delle perdite (aggiornata al 22/10/2026)
-
-| Anello | Accuratezza | Perdita rispetto all'anello precedente |
-|---|---|---|
-| A. Float sul PC | *da misurare (Colab)* | — |
-| B. Int8 sulla board, input ideale | 96,8% (500 img test) | quantizzazione + deploy: *A − 96,8* |
-| C. + pre-processing nuovo (modo 1) | 96,4% | −0,4 punti (entro l'incertezza) |
-| C'. + pre-processing originale (modo 0) | 94,4% | −2,4 punti |
-| D. + camera e ottica (monitor, set A e B, 20 cifre) | 89% (A) · 87% (B) dei frame | ≈ −8 punti, quasi tutti dovuti al 9 → 8 (sistematico) |
-| E. + carta scritta a mano | *da misurare* | — |
-
-### Accuratezza con camera (19/10/2026)
-
-Vedi `Doc/test-results.md`: 40% → 75% → 82% → 89% di frame corretti (cifre MNIST su monitor, set A).
-
-## Protocollo carta (punto 5)
-
-- 3 fogli, uno per "scrittura" (tu, un'altra persona, stampatello volutamente diverso), cifre 0–9, ~6 cm di altezza, tratto ~4 mm.
-- Ogni cifra 10 s, poi 2 s di foglio bianco; dire a Claude la cifra prima di mostrarla, oppure seguire l'ordine 0→9.
-- Annotare: luce, distanza, chi ha scritto.

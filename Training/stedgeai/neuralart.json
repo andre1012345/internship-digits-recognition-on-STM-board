@@ -1,0 +1,10 @@
+{
+    "Globals": {
+    },
+    "Profiles": {
+        "dc_equivalent": {
+            "memory_pool": "./stm32n6.mpool",
+            "options": "--native-float --cache-maintenance --enable-virtual-mem-pools -O3 --Os --Omax-ca-pipe 4 --Ocache-opt --enable-epoch-controller --Oauto-sched"
+        }
+    }
+}

@@ -14,10 +14,10 @@ Il sistema è una catena di cinque anelli; ognuno produce l'ingresso del success
 
 ### 2.1 Addestramento (PC, Google Colab)
 
-- Notebook: `Training/mnist_cnn_augmented.ipynb`.
+- Notebook: `Training/mnist_cnn_retrain_2026-10.ipynb` (modello attuale, seed 42; stesso training del notebook di giugno `mnist_cnn_augmented.ipynb`). Catena completa in `Training/README.md`.
 - Dataset: **MNIST** (60 000 immagini di training, cifre bianche su sfondo nero, 28×28).
 - Preparazione: normalizzazione in [0,1], ridimensionamento bilineare a **32×32**, replica su **3 canali** (formato richiesto dalla pipeline camera).
-- Data augmentation: rotazioni, traslazioni, zoom, shear.
+- Data augmentation: rotazione ±15°, traslazione ±10 %, zoom ±15 %, shear 10° (nessuna variazione dello spessore del tratto).
 - Rete (CNN):
 
 | Strato | Uscita |
@@ -29,11 +29,11 @@ Il sistema è una catena di cinque anelli; ognuno produce l'ingresso del success
 | Dense 64, ReLU | 64 |
 | Dense 10, Softmax | 10 |
 
-- Parametri: **28 394**. Esportazione in ONNX + 200 immagini di calibrazione (`mnist_calib.npz`).
+- Parametri: **28 394**. Esportazione in ONNX + 300 immagini di calibrazione (`mnist_calib.npz`).
 
 ### 2.2 Conversione per la scheda (STEdgeAI)
 
-- **Quantizzazione** per canale a int8: pesi da 110,9 KB (float32) a **27,6 KB** (int8).
+- **Quantizzazione** per canale a int8 (ST Edge AI Developer Cloud), compilazione in locale con ST Edge AI Core 4.0 (`Training/stedgeai/generate_model.bat`, stessa versione del runtime nel progetto): pesi da 110,9 KB (float32) a **27,6 KB** (int8).
 - Compilazione per la NPU Neural-ART: il codice generato e i pesi sono in `Model/`:
   - `network.c`, `stai_network.c/.h` — codice che configura ed esegue la NPU;
   - `network_atonbuf.xSPI2.bin` — pesi, da scrivere nella flash NOR esterna a `0x71000000`.
@@ -200,7 +200,7 @@ Il firmware non è stato scritto da zero. Il progetto parte dal repository uffic
 | **Modello**: addestramento, export ONNX, quantizzazione int8 e conversione per la NPU | **originale** | notebook `Training/`, file generati in `Model/` (sostituiscono i modelli d'esempio) |
 | **Configurazione dell'applicazione** (`app_config.h`: 10 classi, testi) | ST → **modificata** | 145 → 49 righe |
 | **`main.c`** | ST → **esteso** | 732 → ~1 200 righe (+511 / −41 rispetto a ST, prima delle modifiche del 22/10) |
-| **Script e strumenti**: `flash.ps1`, generatori di `digits.h` e `mnist_test.h`, pagina *MNIST Test Card* | **originali** | — |
+| **Script e strumenti**: `flash.ps1`, generatore di `mnist_test.h`, `Training/stedgeai/generate_model.bat`, pagina *MNIST Test Card* | **originali** | — |
 | **Riorganizzazione del repository** (rimozione Nucleo e modelli d'esempio, progetto CubeIDE compilabile da un clone) | **originale** | — |
 | **Metodologia di test, misure, analisi e documentazione** | **originale** | `Doc/` |
 
@@ -208,7 +208,7 @@ Contributi principali dentro `main.c`:
 - buffer intermedio `nn_raw` tra camera e rete, per poter elaborare l'immagine via software;
 - **pre-processing** in due varianti (soglia globale; sottrazione dello sfondo locale con immagine integrale e cornice vuota), con parametri configurabili;
 - quantizzazione dell'input e dequantizzazione dell'output int8 secondo scala e zero point del modello;
-- modalità di test: `TEST_MODE 1` (immagini fisse) e `TEST_MODE 2` (**benchmark** su 500 immagini del test set con tre percorsi, matrici di confusione);
+- modalità di test `TEST_MODE 2` (**benchmark** su 500 immagini del test set con tre percorsi, matrici di confusione);
 - **cronometraggio per fase** con il contatore di cicli DWT del Cortex-M55;
 - **dump diagnostico** dell'input della rete via UART e log strutturato delle predizioni.
 
@@ -233,11 +233,11 @@ Ricostruendo il testo come immagine si ottiene la figura `Doc/figures/2026-10-22
 
 | Test | Immagini | Usate per i pesi? | Altri usi | Valore del risultato |
 |---|---|---|---|---|
-| Benchmark sulla scheda (`TEST_MODE 2`) | prime 500 del **test set** MNIST | no | le prime 200 sono anche il **set di calibrazione** della quantizzazione (`x_test[:200]`) | accuratezza del modello int8; il valore pulito è quello sulle 300 immagini mai usate |
+| Benchmark sulla scheda (`TEST_MODE 2`) | prime 500 del **test set** MNIST | no | nessuno (model_2026-10: calibrazione con 300 immagini del *training* set). Nel modello di giugno le prime 200 erano anche il set di calibrazione | accuratezza del modello int8 su dati mai visti |
 | Test Card con camera (set A, B, C) | immagini 0–236 del **training set** MNIST | no: rientrano nelle prime 6 000 riservate a *validation* (`x_train[:6000]`) | monitoraggio dell'addestramento; **regolazione del pre-processing** | generalizzazione *interna* allo stile MNIST; leggermente ottimistico |
 | Cifre scritte a mano (tablet, carta) | nuove | no | nessuno | unico test indipendente: da eseguire **una sola volta a parametri congelati** |
 
-Accuratezza del benchmark int8 (*direct*) suddivisa: 98,5% sulle 200 immagini di calibrazione, **95,7% sulle 300 mai usate**. La differenza non è statisticamente significativa con questi numeri, ma l'influenza della calibrazione va dichiarata.
+Con il modello di giugno il benchmark int8 (*direct*) era 98,5% sulle 200 immagini di calibrazione e 95,7% sulle 300 mai usate. Nel modello attuale (model_2026-10) la calibrazione è stata spostata sul training set proprio per eliminare questa sovrapposizione: le 500 immagini del benchmark sono tutte pulite (float 96,6%, int8 sulla board 96,4%).
 
 ## 14. Benchmark sulla scheda e tempi (22/10/2026)
 
