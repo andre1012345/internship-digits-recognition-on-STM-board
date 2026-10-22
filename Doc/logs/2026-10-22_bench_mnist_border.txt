@@ -1,0 +1,120 @@
+Error writing session log (raw mode) to file: putty.log   C:\Users\Utente\intern                                                                             ship\03_STM32N6570-DK\Doc\logs\2026-10-22_bench_mnist_border.txt
+
+[HW] UART OK
+[HW] NPU RAM OK
+[HW] Fuse OK
+[HW] NPU Cache OK
+[HW] XSPI RAM OK
+[HW] XSPI NOR OK
+[BENCH] CPU clock: 800000000 Hz
+[BENCH] MNIST test set: 500 images x 3 pipelines (direct, preproc mode 0, prepro                                                                             c mode 1)
+[MISS] preproc0 idx=13 label=0 pred=9 conf=62%
+[MISS] preproc0 idx=15 label=5 pred=3 conf=85%
+[MISS] preproc1 idx=15 label=5 pred=3 conf=76%
+[MISS] preproc0 idx=41 label=7 pred=2 conf=44%
+[MISS] preproc0 idx=61 label=8 pred=2 conf=40%
+[MISS] preproc1 idx=61 label=8 pred=2 conf=56%
+[MISS] direct idx=78 label=9 pred=8 conf=51%
+[MISS] preproc0 idx=89 label=1 pred=4 conf=53%
+[BENCH] 100/500  acc: direct=99.0%  preproc0=95.0%  preproc1=98.0%
+[MISS] preproc0 idx=151 label=9 pred=3 conf=50%
+[MISS] preproc0 idx=158 label=3 pred=2 conf=50%
+[MISS] direct idx=160 label=4 pred=6 conf=94%
+[MISS] preproc0 idx=160 label=4 pred=6 conf=82%
+[MISS] preproc1 idx=160 label=4 pred=6 conf=97%
+[MISS] preproc0 idx=175 label=7 pred=2 conf=30%
+[MISS] direct idx=184 label=8 pred=3 conf=82%
+[MISS] preproc0 idx=184 label=8 pred=3 conf=78%
+[MISS] preproc1 idx=184 label=8 pred=3 conf=88%
+[BENCH] 200/500  acc: direct=98.5%  preproc0=95.0%  preproc1=98.0%
+[MISS] preproc0 idx=241 label=9 pred=3 conf=75%
+[MISS] direct idx=247 label=4 pred=2 conf=66%
+[MISS] preproc0 idx=247 label=4 pred=2 conf=69%
+[MISS] preproc1 idx=247 label=4 pred=2 conf=89%
+[MISS] direct idx=259 label=6 pred=0 conf=77%
+[MISS] preproc0 idx=259 label=6 pred=0 conf=57%
+[MISS] preproc1 idx=259 label=6 pred=0 conf=81%
+[MISS] preproc1 idx=264 label=9 pred=8 conf=61%
+[MISS] direct idx=282 label=7 pred=3 conf=70%
+[MISS] preproc1 idx=282 label=7 pred=3 conf=75%
+[BENCH] 300/500  acc: direct=98.0%  preproc0=95.7%  preproc1=97.3%
+[MISS] preproc1 idx=307 label=7 pred=3 conf=69%
+[MISS] direct idx=318 label=2 pred=3 conf=68%
+[MISS] preproc0 idx=318 label=2 pred=3 conf=81%
+[MISS] preproc1 idx=318 label=2 pred=3 conf=57%
+[MISS] direct idx=320 label=9 pred=8 conf=70%
+[MISS] preproc0 idx=320 label=9 pred=8 conf=83%
+[MISS] preproc1 idx=320 label=9 pred=8 conf=81%
+[MISS] direct idx=324 label=0 pred=9 conf=51%
+[MISS] preproc0 idx=324 label=0 pred=9 conf=63%
+[MISS] direct idx=352 label=5 pred=3 conf=73%
+[MISS] preproc0 idx=352 label=5 pred=3 conf=95%
+[MISS] preproc1 idx=352 label=5 pred=3 conf=92%
+[MISS] preproc0 idx=359 label=9 pred=4 conf=62%
+[MISS] direct idx=376 label=4 pred=9 conf=54%
+[MISS] preproc1 idx=376 label=4 pred=9 conf=58%
+[BENCH] 400/500  acc: direct=97.2%  preproc0=95.5%  preproc1=96.8%
+[MISS] direct idx=412 label=5 pred=3 conf=76%
+[MISS] preproc0 idx=412 label=5 pred=3 conf=94%
+[MISS] preproc1 idx=412 label=5 pred=3 conf=84%
+[MISS] preproc0 idx=434 label=9 pred=3 conf=83%
+[MISS] direct idx=435 label=8 pred=9 conf=89%
+[MISS] preproc0 idx=435 label=8 pred=9 conf=85%
+[MISS] preproc1 idx=435 label=8 pred=9 conf=79%
+[MISS] preproc0 idx=443 label=0 pred=2 conf=47%
+[MISS] direct idx=445 label=6 pred=0 conf=82%
+[MISS] preproc0 idx=445 label=6 pred=0 conf=27%
+[MISS] preproc1 idx=445 label=6 pred=0 conf=82%
+[MISS] preproc0 idx=448 label=9 pred=3 conf=48%
+[MISS] preproc1 idx=468 label=7 pred=3 conf=53%
+[MISS] preproc0 idx=471 label=9 pred=7 conf=48%
+[MISS] preproc0 idx=479 label=9 pred=3 conf=49%
+[MISS] direct idx=490 label=0 pred=6 conf=61%
+[MISS] preproc0 idx=490 label=0 pred=6 conf=51%
+[MISS] preproc1 idx=490 label=0 pred=6 conf=53%
+[MISS] preproc0 idx=491 label=5 pred=3 conf=57%
+[MISS] preproc1 idx=495 label=8 pred=0 conf=51%
+[MISS] direct idx=497 label=4 pred=8 conf=83%
+[MISS] preproc1 idx=497 label=4 pred=8 conf=81%
+[BENCH] 500/500  acc: direct=96.8%  preproc0=94.4%  preproc1=96.0%
+[BENCH] ===== RESULTS (500 images, 649 ms) =====
+[BENCH] direct    accuracy = 484/500 = 96.80%   (top-1 conf < 70%: 18)
+[BENCH] preproc0  accuracy = 472/500 = 94.40%   (top-1 conf < 70%: 54)
+[BENCH] preproc1  accuracy = 480/500 = 96.00%   (top-1 conf < 70%: 22)
+[CM] direct (rows = true label, cols = predicted)
+[CM] 0:  40   0   0   0   0   0   1   0   0   1
+[CM] 1:   0  67   0   0   0   0   0   0   0   0
+[CM] 2:   0   0  54   1   0   0   0   0   0   0
+[CM] 3:   0   0   0  45   0   0   0   0   0   0
+[CM] 4:   0   0   1   0  51   0   1   0   1   1
+[CM] 5:   0   0   0   2   0  48   0   0   0   0
+[CM] 6:   2   0   0   0   0   0  41   0   0   0
+[CM] 7:   0   0   0   1   0   0   0  48   0   0
+[CM] 8:   0   0   0   1   0   0   0   0  38   1
+[CM] 9:   0   0   0   0   0   0   0   0   2  52
+[CM] preproc0 (rows = true label, cols = predicted)
+[CM] 0:  38   0   1   0   0   0   1   0   0   2
+[CM] 1:   0  66   0   0   1   0   0   0   0   0
+[CM] 2:   0   0  54   1   0   0   0   0   0   0
+[CM] 3:   0   0   1  44   0   0   0   0   0   0
+[CM] 4:   0   0   1   0  53   0   1   0   0   0
+[CM] 5:   0   0   0   4   0  46   0   0   0   0
+[CM] 6:   2   0   0   0   0   0  41   0   0   0
+[CM] 7:   0   0   2   0   0   0   0  47   0   0
+[CM] 8:   0   0   1   1   0   0   0   0  37   1
+[CM] 9:   0   0   0   5   1   0   0   1   1  46
+[CM] preproc1 (rows = true label, cols = predicted)
+[CM] 0:  41   0   0   0   0   0   1   0   0   0
+[CM] 1:   0  67   0   0   0   0   0   0   0   0
+[CM] 2:   0   0  54   1   0   0   0   0   0   0
+[CM] 3:   0   0   0  45   0   0   0   0   0   0
+[CM] 4:   0   0   1   0  51   0   1   0   1   1
+[CM] 5:   0   0   0   3   0  47   0   0   0   0
+[CM] 6:   2   0   0   0   0   0  41   0   0   0
+[CM] 7:   0   0   0   3   0   0   0  46   0   0
+[CM] 8:   1   0   1   1   0   0   0   0  36   1
+[CM] 9:   0   0   0   0   0   0   0   0   2  52
+[BENCH] npu        avg=   118.2 us  min=   118.0 us  max=   126.8 us  (n=1500)
+[BENCH] preproc0   avg=   113.4 us  min=   106.4 us  max=   123.8 us  (n=500)
+[BENCH] preproc1   avg=   168.8 us  min=   162.5 us  max=   174.1 us  (n=500)
+[BENCH] done

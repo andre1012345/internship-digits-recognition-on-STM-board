@@ -40,7 +40,17 @@ Real-time handwritten digit recognition (0–9) running entirely on the **STM32N
 
 ---
 
-## Quick start
+## From a fresh clone to a running board
+
+### What you need
+
+| | |
+|---|---|
+| Board | **STM32N6570-DK** with the **IMX335 camera module** connected (flat cable to the camera connector) |
+| PC | Windows, USB-C cable (data, not charge-only) |
+| STM32CubeIDE | tested with **2.1.1** |
+| STM32CubeProgrammer | **≥ 2.18**, installed in the **default path** `C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer` — used by `flash.ps1` *and* by the build to sign the binary |
+| Serial terminal | PuTTY or the CubeIDE terminal |
 
 ### Boot switches
 
@@ -54,16 +64,6 @@ Real-time handwritten digit recognition (0–9) running entirely on the **STM32N
 | ![Boot from flash](Doc/ST-reference/_htmresc/STM32N6570-DK_Boot_from_flash.png) | ![DEV mode](Doc/ST-reference/_htmresc/STM32N6570-DK_Dev_mode.png) |
 
 The switches are read only at power-up: **unplug and replug USB after every change** (the reset button is not enough).
-
-### What you need
-
-| | |
-|---|---|
-| Board | **STM32N6570-DK** with the **IMX335 camera module** connected (flat cable to the camera connector) |
-| PC | Windows, USB-C cable (data, not charge-only) |
-| STM32CubeIDE | tested with **2.1.1** |
-| STM32CubeProgrammer | **≥ 2.18**, installed in the **default path** `C:\Program Files\STMicroelectronics\STM32Cube\STM32CubeProgrammer` — used by `flash.ps1` *and* by the build to sign the binary |
-| Serial terminal | PuTTY or the CubeIDE terminal |
 
 ### 1. Get the code
 

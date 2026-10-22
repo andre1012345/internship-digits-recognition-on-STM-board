@@ -36,7 +36,10 @@
 #include "stlogo.h"
 #include "arm_math.h"
 
-#define TEST_MODE 0  /* 0 = live camera, 1 = synthetic digit cycling */
+#define TEST_MODE 0  /* 0 = live camera, 1 = cycle digits.h images, 2 = MNIST benchmark (no camera) */
+/* BENCH_PERIOD_FRAMES: every N frames print per-stage timing statistics
+   (microseconds, DWT cycle counter) on UART. 0 = disabled. */
+#define BENCH_PERIOD_FRAMES 100
 /* DEBUG_DUMP_MS: every N ms print on UART the 32x32 camera input (left) and
    the preprocessed network input (right) as ASCII art. 0 = disabled. */
 #define DEBUG_DUMP_MS 2000
@@ -47,11 +50,15 @@
 #define PREPROC_BG_RADIUS     6      /* background window = 13x13 px on the 32x32 frame */
 #define PREPROC_MIN_CONTRAST  0.06f  /* residuals below this are treated as background */
 #define PREPROC_STRETCH       0.7f   /* strokes at >= 70% of max residual map to 1.0 */
+#define PREPROC_BORDER        3      /* mode 1: zero a 3-px frame (MNIST digits always have an empty border) */
 
 /* Copy of the preprocessed network input (0..255) for the debug dump: the real
    input buffer is reused by the NPU as activation memory during inference. */
 static uint8_t net_in_dbg[STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT];
-#if TEST_MODE
+#if TEST_MODE == 2
+#include "mnist_test.h"
+#endif
+#if TEST_MODE == 1
 #include "digits.h"
 #define DIGIT_HOLD_MS 3000  /* ms to hold each digit before advancing */
 #endif
@@ -144,7 +151,7 @@ static void SystemClock_Config(void);
 static void CONSOLE_Config(void);
 static void NPURam_enable(void);
 static void NPUCache_config(void);
-static void Display_NetworkOutput(uint32_t inference_ms);
+static void Display_NetworkOutput(uint32_t inference_us);
 static void Network_Postprocess(void);
 static void Bubblesort(float *prob, int *classes, int size);
 static void LCD_init(void);
@@ -164,9 +171,233 @@ static void NeuralNetwork_init(uint32_t *nn_in_length, stai_ptr *nn_out, stai_si
   * @param  None
   * @retval None
   */
+/* ---------------------------------------------------------------------------
+ * Timing helpers: DWT cycle counter of the Cortex-M55 (1 cycle resolution)
+ * ------------------------------------------------------------------------- */
+typedef struct { uint64_t sum; uint32_t min, max, n; } Stat_t;
+static uint32_t cpu_hz;
+
+static void Cycles_Init(void)
+{
+  DCB->DEMCR |= DCB_DEMCR_TRCENA_Msk;
+  DWT->CYCCNT = 0;
+  DWT->CTRL |= DWT_CTRL_CYCCNTENA_Msk;
+  cpu_hz = HAL_RCC_GetCpuClockFreq();
+}
+static inline uint32_t Cycles_Now(void) { return DWT->CYCCNT; }
+static void Stat_Add(Stat_t *s, uint32_t cyc)
+{
+  if (s->n == 0 || cyc < s->min) s->min = cyc;
+  if (cyc > s->max) s->max = cyc;
+  s->sum += cyc; s->n++;
+}
+static float Cyc_To_Us(double cyc) { return (float)(cyc * 1e6 / (double)cpu_hz); }
+static void Stat_Print(const char *name, const Stat_t *s)
+{
+  if (s->n == 0) return;
+  printf("[BENCH] %-10s avg=%8.1f us  min=%8.1f us  max=%8.1f us  (n=%lu)\r\n", name,
+         Cyc_To_Us((double)s->sum / s->n), Cyc_To_Us(s->min), Cyc_To_Us(s->max), (unsigned long)s->n);
+}
+
+/* ---------------------------------------------------------------------------
+ * Preprocessing: RGB888 camera frame (dark ink on white) -> int8 network input
+ *   mode 0: original global midpoint threshold
+ *   mode 1: local background subtraction (vignetting-robust)
+ * Also stores a 0..255 copy of the result in net_in_dbg for the debug dump.
+ * ------------------------------------------------------------------------- */
+static void Preprocess(const uint8_t *src, int8_t *dst, int mode)
+{
+  int n = STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT;
+
+
+  if (mode == 0)
+  {
+      /* --- Mode 0 (original): global midpoint threshold --------------------- */
+      /* Pass 1: find scene vmin/vmax */
+      float vmin = 1.0f, vmax = 0.0f;
+      for (int i = 0; i < n; i++)
+      {
+        float gray = 0.299f * src[3*i] + 0.587f * src[3*i+1] + 0.114f * src[3*i+2];
+        float val  = (255.0f - gray) / 255.0f;
+        if (val < vmin) vmin = val;
+        if (val > vmax) vmax = val;
+      }
+
+      float midpt    = (vmin + vmax) * 0.5f;
+      float hi_range = vmax - midpt;
+      if (hi_range < 0.005f) hi_range = 0.005f;
+
+      /* Pass 2: suppress background, quantise to int8 */
+      for (int i = 0; i < n; i++)
+      {
+        float gray = 0.299f * src[3*i] + 0.587f * src[3*i+1] + 0.114f * src[3*i+2];
+        float val  = (255.0f - gray) / 255.0f;
+        float v = (val <= midpt) ? 0.0f : (val - midpt) / hi_range;
+        if (v > 1.0f) v = 1.0f;
+        net_in_dbg[i] = (uint8_t)(v * 255.0f);
+        dst[3*i] = dst[3*i+1] = dst[3*i+2] = (int8_t)((int)(v * 255.0f) - 128);
+      }
+  }
+  else
+  {
+      /* --- Mode 1: local background subtraction (removes lens vignetting) ----
+       * val = inverted luminance (ink -> bright). The background is estimated
+       * per pixel as the mean of a (2R+1)x(2R+1) window (integral image), then
+       * subtracted: slow shading such as vignetting cancels out, thin strokes
+       * remain. Small residuals are zeroed, the rest is stretched to [0,1]. */
+      const int W = STAI_NETWORK_IN_1_WIDTH, H = STAI_NETWORK_IN_1_HEIGHT;
+      static float val[STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT];
+      static float integ[(STAI_NETWORK_IN_1_WIDTH + 1) * (STAI_NETWORK_IN_1_HEIGHT + 1)];
+
+      for (int i = 0; i < n; i++)
+      {
+        float gray = 0.299f * src[3*i] + 0.587f * src[3*i+1] + 0.114f * src[3*i+2];
+        val[i] = (255.0f - gray) / 255.0f;
+      }
+      for (int x = 0; x <= W; x++) integ[x] = 0.0f;
+      for (int y = 1; y <= H; y++)
+      {
+        float row = 0.0f;
+        integ[y * (W + 1)] = 0.0f;
+        for (int x = 1; x <= W; x++)
+        {
+          row += val[(y - 1) * W + (x - 1)];
+          integ[y * (W + 1) + x] = integ[(y - 1) * (W + 1) + x] + row;
+        }
+      }
+
+      float dmax = 0.0f;
+      for (int y = 0; y < H; y++)
+      {
+        int y0 = (y - PREPROC_BG_RADIUS < 0) ? 0 : y - PREPROC_BG_RADIUS;
+        int y1 = (y + PREPROC_BG_RADIUS >= H) ? H - 1 : y + PREPROC_BG_RADIUS;
+        for (int x = 0; x < W; x++)
+        {
+          int x0 = (x - PREPROC_BG_RADIUS < 0) ? 0 : x - PREPROC_BG_RADIUS;
+          int x1 = (x + PREPROC_BG_RADIUS >= W) ? W - 1 : x + PREPROC_BG_RADIUS;
+          float sum = integ[(y1 + 1) * (W + 1) + (x1 + 1)] - integ[y0 * (W + 1) + (x1 + 1)]
+                    - integ[(y1 + 1) * (W + 1) + x0]       + integ[y0 * (W + 1) + x0];
+          float bg  = sum / (float)((y1 - y0 + 1) * (x1 - x0 + 1));
+          float d   = val[y * W + x] - bg;
+          if (d < PREPROC_MIN_CONTRAST) d = 0.0f;
+          if (x < PREPROC_BORDER || x >= W - PREPROC_BORDER ||
+              y < PREPROC_BORDER || y >= H - PREPROC_BORDER) d = 0.0f;   /* empty frame as in MNIST */
+          val[y * W + x] = d;               /* reuse buffer: now holds the residual */
+          if (d > dmax) dmax = d;
+        }
+      }
+
+      /* Empty / flat scene: keep the input black so the network sees nothing */
+      float scale = (dmax < 0.05f) ? 0.0f : 1.0f / (PREPROC_STRETCH * dmax);
+      for (int i = 0; i < n; i++)
+      {
+        float v = val[i] * scale;
+        if (v > 1.0f) v = 1.0f;
+        net_in_dbg[i] = (uint8_t)(v * 255.0f);
+        dst[3*i] = dst[3*i+1] = dst[3*i+2] = (int8_t)((int)(v * 255.0f) - 128);
+      }
+  }
+}
+
+#if TEST_MODE == 2
+/* ---------------------------------------------------------------------------
+ * MNIST benchmark (no camera): every test image goes through 3 pipelines
+ *   P0 direct : image fed exactly as in training (v = pixel/255)
+ *               -> measures quantisation + deployment loss only
+ *   P1 mode 0 : image rendered as dark ink on white (ideal camera, no optics)
+ *               and passed through Preprocess(mode 0)
+ *   P2 mode 1 : same, through Preprocess(mode 1)
+ *               -> P1/P2 vs P0 measure the loss caused by the preprocessing
+ * ------------------------------------------------------------------------- */
+static int Bench_Infer(stai_ptr nn_out[], int nout, int32_t nn_out_len[], Stat_t *st, int *conf_pct)
+{
+  SCB_CleanInvalidateDCache_by_Addr(nn_in, STAI_NETWORK_IN_1_SIZE_BYTES);
+  uint32_t c0 = Cycles_Now();
+  int ret = stai_network_run(network_context, STAI_MODE_SYNC);
+  uint32_t c1 = Cycles_Now();
+  assert(ret == 0);
+  (void)ret;
+  Stat_Add(st, c1 - c0);
+  for (int i = 0; i < nout; i++)
+    SCB_InvalidateDCache_by_Addr(nn_out[i], nn_out_len[i]);
+  const int8_t *o = (const int8_t *)nn_out[0];
+  int best = 0;
+  for (int i = 1; i < NB_CLASSES; i++)
+    if (o[i] > o[best]) best = i;
+  *conf_pct = (int)(((int)o[best] + 128) * 100 / 256);
+  return best;
+}
+
+static void Benchmark_Run(stai_ptr nn_out[], int nout, int32_t nn_out_len[])
+{
+  static const char *pname[3] = { "direct", "preproc0", "preproc1" };
+  static uint16_t cm[3][NB_CLASSES][NB_CLASSES];
+  int correct[3] = { 0 }, lowconf[3] = { 0 };
+  Stat_t st_npu = { 0 }, st_pre[2] = { 0 };
+  const int npx = STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT;
+  uint32_t t0 = HAL_GetTick();
+
+  printf("[BENCH] MNIST test set: %d images x 3 pipelines (direct, preproc mode 0, preproc mode 1)\r\n", MNIST_TEST_N);
+  for (int k = 0; k < MNIST_TEST_N; k++)
+  {
+    const uint8_t *img = mnist_test_img[k];
+    int y = mnist_test_lbl[k];
+    for (int p = 0; p < 3; p++)
+    {
+      int8_t *dst = (int8_t *)nn_in;
+      if (p == 0)
+      {
+        for (int i = 0; i < npx; i++)
+          dst[3*i] = dst[3*i+1] = dst[3*i+2] = (int8_t)((int)img[i] - 128);
+      }
+      else
+      {
+        for (int i = 0; i < npx; i++)
+          nn_raw[3*i] = nn_raw[3*i+1] = nn_raw[3*i+2] = (uint8_t)(255 - img[i]);
+        uint32_t c0 = Cycles_Now();
+        Preprocess(nn_raw, dst, p - 1);
+        Stat_Add(&st_pre[p - 1], Cycles_Now() - c0);
+      }
+      int cp;
+      int pred = Bench_Infer(nn_out, nout, nn_out_len, &st_npu, &cp);
+      cm[p][y][pred]++;
+      if (pred == y) correct[p]++;
+      else printf("[MISS] %s idx=%d label=%d pred=%d conf=%d%%\r\n", pname[p], k, y, pred, cp);
+      if (cp < 70) lowconf[p]++;
+    }
+    if ((k + 1) % 100 == 0)
+      printf("[BENCH] %d/%d  acc: direct=%.1f%%  preproc0=%.1f%%  preproc1=%.1f%%\r\n", k + 1, MNIST_TEST_N,
+             100.0f * correct[0] / (k + 1), 100.0f * correct[1] / (k + 1), 100.0f * correct[2] / (k + 1));
+  }
+
+  printf("[BENCH] ===== RESULTS (%d images, %lu ms) =====\r\n", MNIST_TEST_N, (unsigned long)(HAL_GetTick() - t0));
+  for (int p = 0; p < 3; p++)
+  {
+    printf("[BENCH] %-9s accuracy = %d/%d = %.2f%%   (top-1 conf < 70%%: %d)\r\n", pname[p],
+           correct[p], MNIST_TEST_N, 100.0f * correct[p] / MNIST_TEST_N, lowconf[p]);
+  }
+  for (int p = 0; p < 3; p++)
+  {
+    printf("[CM] %s (rows = true label, cols = predicted)\r\n", pname[p]);
+    for (int r = 0; r < NB_CLASSES; r++)
+    {
+      printf("[CM] %d:", r);
+      for (int c = 0; c < NB_CLASSES; c++) printf(" %3u", cm[p][r][c]);
+      printf("\r\n");
+    }
+  }
+  Stat_Print("npu", &st_npu);
+  Stat_Print("preproc0", &st_pre[0]);
+  Stat_Print("preproc1", &st_pre[1]);
+  printf("[BENCH] done\r\n");
+}
+#endif
+
 int main(void)
 {
   Hardware_init();
+  Cycles_Init();
+  printf("[BENCH] CPU clock: %lu Hz\r\n", (unsigned long)cpu_hz);
 
   /*** NN Init ****************************************************************/
   stai_size number_output = 0;
@@ -192,9 +423,15 @@ int main(void)
 
   /*** Camera + LCD Init ******************************************************/
   uint32_t pitch_nn = 0;
+#if TEST_MODE == 2
+  (void)pitch_nn;
+  Benchmark_Run(nn_out, (int)number_output, nn_out_len);
+  while (1) {}
+#else
   CameraPipeline_Init(&lcd_bg_area.XSize, &lcd_bg_area.YSize, &pitch_nn);
   LCD_init();
   CameraPipeline_DisplayPipe_Start(lcd_bg_buffer, CMW_MODE_CONTINUOUS);
+#endif
 
   /*** Startup banner *********************************************************/
   printf("========================================\r\n");
@@ -256,12 +493,18 @@ int main(void)
    */
 
   /*** App Loop ***************************************************************/
+#if BENCH_PERIOD_FRAMES
+  static Stat_t st_isp, st_cap, st_pre, st_npu, st_post, st_disp, st_uart, st_tot;
+  uint32_t bench_t0_ms = HAL_GetTick();
+#endif
   while (1)
   {
+    uint32_t cy0 = Cycles_Now();
     CameraPipeline_IspUpdate();
+    uint32_t cy1 = Cycles_Now();
 
     /* --- [1] FRAME ACQUISITION --------------------------------------------- */
-#if TEST_MODE
+#if TEST_MODE == 1
     /* Cycle through digits 0-9, advancing every DIGIT_HOLD_MS milliseconds */
     static int     current_digit   = 0;
     static uint32_t digit_start_ms = 0;
@@ -298,106 +541,22 @@ int main(void)
 #endif
 #endif /* !TEST_MODE */
 
-    uint32_t ts[2] = { 0 };
+    uint32_t cy2 = Cycles_Now();
 
     /* --- [2] PREPROCESSING: RGB888 uint8 → int8 (scale=1/255, zp=-128) ---
      * Same two-pass algorithm; output written as int8 to match the quantised
      * model input format (STAI_FORMAT_S8) generated by STEdgeAI. */
     {
-      const uint8_t *src = nn_raw;
-      int8_t        *dst = (int8_t *)nn_in;
-      int n = STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT;
-
-#if PREPROC_MODE == 0
-      /* --- Mode 0 (original): global midpoint threshold --------------------- */
-      /* Pass 1: find scene vmin/vmax */
-      float vmin = 1.0f, vmax = 0.0f;
-      for (int i = 0; i < n; i++)
-      {
-        float gray = 0.299f * src[3*i] + 0.587f * src[3*i+1] + 0.114f * src[3*i+2];
-        float val  = (255.0f - gray) / 255.0f;
-        if (val < vmin) vmin = val;
-        if (val > vmax) vmax = val;
-      }
-
-      float midpt    = (vmin + vmax) * 0.5f;
-      float hi_range = vmax - midpt;
-      if (hi_range < 0.005f) hi_range = 0.005f;
-
-      /* Pass 2: suppress background, quantise to int8 */
-      for (int i = 0; i < n; i++)
-      {
-        float gray = 0.299f * src[3*i] + 0.587f * src[3*i+1] + 0.114f * src[3*i+2];
-        float val  = (255.0f - gray) / 255.0f;
-        float v = (val <= midpt) ? 0.0f : (val - midpt) / hi_range;
-        if (v > 1.0f) v = 1.0f;
-        net_in_dbg[i] = (uint8_t)(v * 255.0f);
-        dst[3*i] = dst[3*i+1] = dst[3*i+2] = (int8_t)((int)(v * 255.0f) - 128);
-      }
-#else
-      /* --- Mode 1: local background subtraction (removes lens vignetting) ----
-       * val = inverted luminance (ink -> bright). The background is estimated
-       * per pixel as the mean of a (2R+1)x(2R+1) window (integral image), then
-       * subtracted: slow shading such as vignetting cancels out, thin strokes
-       * remain. Small residuals are zeroed, the rest is stretched to [0,1]. */
-      const int W = STAI_NETWORK_IN_1_WIDTH, H = STAI_NETWORK_IN_1_HEIGHT;
-      static float val[STAI_NETWORK_IN_1_WIDTH * STAI_NETWORK_IN_1_HEIGHT];
-      static float integ[(STAI_NETWORK_IN_1_WIDTH + 1) * (STAI_NETWORK_IN_1_HEIGHT + 1)];
-
-      for (int i = 0; i < n; i++)
-      {
-        float gray = 0.299f * src[3*i] + 0.587f * src[3*i+1] + 0.114f * src[3*i+2];
-        val[i] = (255.0f - gray) / 255.0f;
-      }
-      for (int x = 0; x <= W; x++) integ[x] = 0.0f;
-      for (int y = 1; y <= H; y++)
-      {
-        float row = 0.0f;
-        integ[y * (W + 1)] = 0.0f;
-        for (int x = 1; x <= W; x++)
-        {
-          row += val[(y - 1) * W + (x - 1)];
-          integ[y * (W + 1) + x] = integ[(y - 1) * (W + 1) + x] + row;
-        }
-      }
-
-      float dmax = 0.0f;
-      for (int y = 0; y < H; y++)
-      {
-        int y0 = (y - PREPROC_BG_RADIUS < 0) ? 0 : y - PREPROC_BG_RADIUS;
-        int y1 = (y + PREPROC_BG_RADIUS >= H) ? H - 1 : y + PREPROC_BG_RADIUS;
-        for (int x = 0; x < W; x++)
-        {
-          int x0 = (x - PREPROC_BG_RADIUS < 0) ? 0 : x - PREPROC_BG_RADIUS;
-          int x1 = (x + PREPROC_BG_RADIUS >= W) ? W - 1 : x + PREPROC_BG_RADIUS;
-          float sum = integ[(y1 + 1) * (W + 1) + (x1 + 1)] - integ[y0 * (W + 1) + (x1 + 1)]
-                    - integ[(y1 + 1) * (W + 1) + x0]       + integ[y0 * (W + 1) + x0];
-          float bg  = sum / (float)((y1 - y0 + 1) * (x1 - x0 + 1));
-          float d   = val[y * W + x] - bg;
-          if (d < PREPROC_MIN_CONTRAST) d = 0.0f;
-          val[y * W + x] = d;               /* reuse buffer: now holds the residual */
-          if (d > dmax) dmax = d;
-        }
-      }
-
-      /* Empty / flat scene: keep the input black so the network sees nothing */
-      float scale = (dmax < 0.05f) ? 0.0f : 1.0f / (PREPROC_STRETCH * dmax);
-      for (int i = 0; i < n; i++)
-      {
-        float v = val[i] * scale;
-        if (v > 1.0f) v = 1.0f;
-        net_in_dbg[i] = (uint8_t)(v * 255.0f);
-        dst[3*i] = dst[3*i+1] = dst[3*i+2] = (int8_t)((int)(v * 255.0f) - 128);
-      }
-#endif
+      Preprocess(nn_raw, (int8_t *)nn_in, PREPROC_MODE);
       SCB_CleanInvalidateDCache_by_Addr(nn_in, STAI_NETWORK_IN_1_SIZE_BYTES);
     }
 
     /* --- [3] NPU INFERENCE ------------------------------------------------- */
-    ts[0] = HAL_GetTick();
+    uint32_t cy3 = Cycles_Now();
     ret = stai_network_run(network_context, STAI_MODE_SYNC);
     assert(ret == 0);
-    ts[1] = HAL_GetTick();
+    uint32_t cy4 = Cycles_Now();
+    uint32_t npu_us = (uint32_t)Cyc_To_Us(cy4 - cy3);
 
     /* Invalidate DCache so CPU sees the NPU-written nn_out values */
     for (int i = 0; i < (int)number_output; i++)
@@ -412,21 +571,24 @@ int main(void)
 
     /* --- [4] POSTPROCESS + DISPLAY ----------------------------------------- */
     Network_Postprocess();
+    uint32_t cy5 = Cycles_Now();
 
-    Display_NetworkOutput(ts[1] - ts[0]);
+    Display_NetworkOutput(npu_us);
+    uint32_t cy6 = Cycles_Now();
 
-#if TEST_MODE
-    printf("digit=%d  predicted=%d  conf=%.0f%%  %s  (%lums)\r\n",
+#if TEST_MODE == 1
+    printf("digit=%d  predicted=%d  conf=%.0f%%  %s  (%luus)\r\n",
            current_digit, nn_ranking[0],
            nn_top1_output_class_proba * 100.0f,
            (nn_ranking[0] == current_digit) ? "OK" : "WRONG",
-           ts[1] - ts[0]);
+           (unsigned long)npu_us);
 #else
-    printf("[%d] %.0f%%  (%lums)\r\n",
+    printf("[%d] %.0f%%  (%luus)\r\n",
            nn_ranking[0],
            nn_top1_output_class_proba * 100.0f,
-           ts[1] - ts[0]);
+           (unsigned long)npu_us);
 #endif
+    uint32_t cy7 = Cycles_Now();
 
 #if DEBUG_DUMP_MS
     {
@@ -446,6 +608,34 @@ int main(void)
       void *tmp = nn_out[i];
       SCB_InvalidateDCache_by_Addr(tmp, nn_out_len[i]);
     }
+
+#if BENCH_PERIOD_FRAMES
+    /* Per-stage timing (the debug dump, when it fires, is excluded from 'uart') */
+    Stat_Add(&st_isp,  cy1 - cy0);
+    Stat_Add(&st_cap,  cy2 - cy1);
+    Stat_Add(&st_pre,  cy3 - cy2);
+    Stat_Add(&st_npu,  cy4 - cy3);
+    Stat_Add(&st_post, cy5 - cy4);
+    Stat_Add(&st_disp, cy6 - cy5);
+    Stat_Add(&st_uart, cy7 - cy6);
+    Stat_Add(&st_tot,  cy7 - cy0);
+    if (st_tot.n >= BENCH_PERIOD_FRAMES)
+    {
+      uint32_t el_ms = HAL_GetTick() - bench_t0_ms;
+      printf("[BENCH] ---- %lu frames in %lu ms -> %.2f fps (incl. debug dump: %s) ----\r\n",
+             (unsigned long)st_tot.n, (unsigned long)el_ms, st_tot.n * 1000.0f / (float)el_ms,
+             DEBUG_DUMP_MS ? "yes" : "no");
+      Stat_Print("isp", &st_isp);   Stat_Print("capture", &st_cap);
+      Stat_Print("preproc", &st_pre); Stat_Print("npu", &st_npu);
+      Stat_Print("postproc", &st_post); Stat_Print("display", &st_disp);
+      Stat_Print("uart", &st_uart); Stat_Print("total", &st_tot);
+      memset(&st_isp, 0, sizeof(Stat_t)); memset(&st_cap, 0, sizeof(Stat_t));
+      memset(&st_pre, 0, sizeof(Stat_t)); memset(&st_npu, 0, sizeof(Stat_t));
+      memset(&st_post, 0, sizeof(Stat_t)); memset(&st_disp, 0, sizeof(Stat_t));
+      memset(&st_uart, 0, sizeof(Stat_t)); memset(&st_tot, 0, sizeof(Stat_t));
+      bench_t0_ms = HAL_GetTick();
+    }
+#endif
   }
 }
 
@@ -627,9 +817,9 @@ void IAC_IRQHandler(void)
 /**
 * @brief Display Neural Network output classification results as well as other performances informations
 *
-* @param inference_ms inference time in ms
+* @param inference_us inference time in microseconds
 */
-static void Display_NetworkOutput(uint32_t inference_ms)
+static void Display_NetworkOutput(uint32_t inference_us)
 {
   int ret;
 
@@ -643,7 +833,7 @@ static void Display_NetworkOutput(uint32_t inference_ms)
                         classes_table[nn_ranking[i]],
                         ((float *)(pp_input))[i] * 100.0f);
   }
-  UTIL_LCDEx_PrintfAt(0, LINE(12), CENTER_MODE, "Inference: %ums", inference_ms);
+  UTIL_LCDEx_PrintfAt(0, LINE(12), CENTER_MODE, "Inference: %lu us", (unsigned long)inference_us);
 
   Display_WelcomeScreen();
 

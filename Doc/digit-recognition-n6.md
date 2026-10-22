@@ -148,12 +148,16 @@ Condizioni comuni: cifre MNIST reali (set A) su monitor, ~110 frame per cifra, i
 
 *Percentuali = frame classificati correttamente nella finestra della cifra; tra parentesi la confidenza media sui frame corretti.*
 
+**Test 4 — metodo nuovo con inquadratura corretta** (camera fissata, solo pagina bianca attorno alla cifra): **9 cifre su 10 riconosciute sul 100% dei frame**, confidenza media 92–100%; **89% dei frame corretti** complessivi. Unico errore: il campione del 9 (set A), letto come 8, come nei test 2 e 3. Sullo schermo bianco tra una cifra e l'altra solo il 4% dei frame supera il 70% di confidenza.
+
+Progressione: **40% → 75% → 82% → 89%**.
+
 Osservazioni:
 - Modello, quantizzazione e NPU funzionano: quando una cifra è riconosciuta lo è su quasi tutti i frame, con confidenza 90–100%.
 - Gli errori del metodo originale erano **sistematici**, quindi dovuti a una distorsione costante dell'input, non a limiti del modello.
 - Il metodo originale è molto sensibile all'inquadratura (40% → 75% con lo stesso firmware).
 - Con il metodo nuovo la scena vuota produce confidenza bassa (15–20%) invece di predizioni casuali.
-- Il 7 del test 3 va ripetuto con il bersaglio interamente nell'inquadratura.
+- Il 7 del test 3 era un problema di inquadratura: nel test 4 è riconosciuto al 100%.
 
 ## 8. Discussione
 
@@ -161,7 +165,7 @@ Il collo di bottiglia non è l'architettura della rete (una CNN di questa taglia
 
 ## 9. Prossimi passi
 
-1. Ripetere il test 3 con inquadratura corretta e con i set B e C (più "calligrafie").
+1. Ripetere il test con i set B e C (più "calligrafie") per capire se l'errore sul 9 dipende dal singolo campione.
 2. **Smoothing temporale**: decisione a maggioranza su 5–10 frame consecutivi.
 3. **Normalizzazione "alla MNIST"**: ritaglio della cifra, centratura sul baricentro, scala a 20×20 dentro il riquadro.
 4. Classe **"nessuna cifra"** nel training.
@@ -179,6 +183,96 @@ Il collo di bottiglia non è l'architettura della rete (una CNN di questa taglia
 6. Pre-processing robusto e risultati comparativi (tabella di §7).
 7. Limiti e sviluppi futuri.
 
+## 11. Base di partenza e contributo originale
+
+Il firmware non è stato scritto da zero. Il progetto parte dal repository ufficiale **STMicroelectronics `STM32N6-GettingStarted-ImageClassification`**, versione **v2.3.0** (commit `10c660d`, 16/04/2026; https://github.com/STMicroelectronics/STM32N6-GettingStarted-ImageClassification), adattato tramite studio e *reverse engineering* della sua struttura. Il collegamento al repository originale è conservato in git (`remote upstream`), quindi le differenze sono verificabili con `git diff upstream/main HEAD`.
+
+**Cosa faceva il progetto ST:** classificazione di immagini a colori in **101 classi** (dataset Food-101), con modelli d'esempio EfficientNet-V2 e MobileNet forniti già convertiti, per due schede (STM32N6570-DK e NUCLEO-N657X0-Q). La pipeline hardware della camera (DCMIPP) scriveva l'immagine **direttamente** nel buffer di input della rete: **nessun pre-processing software**.
+
+| Componente | Origine | Stato nel progetto |
+|---|---|---|
+| Driver HAL/LL, BSP, CMSIS, font e LCD | ST / ARM (Apache-2.0, BSD-3-Clause) | invariati |
+| Middleware camera e ISP (`stm32-mw-camera`) | ST (SLA0044) | invariato |
+| Runtime NPU `stedgeai-lib` / `ll_aton` | ST (SLA0044) | invariato |
+| Bootloader FSBL, programmazione fusibili, crop, interrupt | ST | invariati |
+| Configurazione della pipeline camera (`app_camerapipeline.c`) | ST | invariata (riga di diagnostica temporanea poi rimossa) |
+| Linker script, documentazione ST (`Doc/ST-reference/`) | ST | invariati / spostati |
+| **Modello**: addestramento, export ONNX, quantizzazione int8 e conversione per la NPU | **originale** | notebook `Training/`, file generati in `Model/` (sostituiscono i modelli d'esempio) |
+| **Configurazione dell'applicazione** (`app_config.h`: 10 classi, testi) | ST → **modificata** | 145 → 49 righe |
+| **`main.c`** | ST → **esteso** | 732 → ~1 200 righe (+511 / −41 rispetto a ST, prima delle modifiche del 22/10) |
+| **Script e strumenti**: `flash.ps1`, generatori di `digits.h` e `mnist_test.h`, pagina *MNIST Test Card* | **originali** | — |
+| **Riorganizzazione del repository** (rimozione Nucleo e modelli d'esempio, progetto CubeIDE compilabile da un clone) | **originale** | — |
+| **Metodologia di test, misure, analisi e documentazione** | **originale** | `Doc/` |
+
+Contributi principali dentro `main.c`:
+- buffer intermedio `nn_raw` tra camera e rete, per poter elaborare l'immagine via software;
+- **pre-processing** in due varianti (soglia globale; sottrazione dello sfondo locale con immagine integrale e cornice vuota), con parametri configurabili;
+- quantizzazione dell'input e dequantizzazione dell'output int8 secondo scala e zero point del modello;
+- modalità di test: `TEST_MODE 1` (immagini fisse) e `TEST_MODE 2` (**benchmark** su 500 immagini del test set con tre percorsi, matrici di confusione);
+- **cronometraggio per fase** con il contatore di cicli DWT del Cortex-M55;
+- **dump diagnostico** dell'input della rete via UART e log strutturato delle predizioni.
+
+Nota sul metodo: comprendere il template (flusso di avvio FSBL → applicazione, firma dell'immagine, pool di memoria della NPU, pipe della camera, gestione delle cache con DMA e NPU) è stato un prerequisito per ogni modifica, ed è un risultato del tirocinio in sé.
+
+## 12. Come si osserva ciò che "vede" la rete (diagnosi visiva)
+
+La scheda non può inviare immagini al PC: l'unico canale disponibile durante il funzionamento è la UART, che trasporta testo. Per osservare l'input della rete è stata aggiunta al firmware una funzione di debug (`DEBUG_DUMP_MS`) che, ogni 2 s, stampa l'immagine 32×32 **come testo**: ogni carattere è un pixel e il simbolo ne codifica la luminosità su 10 livelli.
+
+```
+' '   .   :   -   =   +   *   #   %   @
+nero (sfondo) ─────────────────────────── bianco (tratto)
+```
+
+Vengono stampate affiancate due immagini: a sinistra il fotogramma della camera (scala di grigi invertita), a destra l'input effettivo della rete dopo il pre-processing. Una copia di quest'ultimo viene salvata prima dell'inferenza, perché la NPU riutilizza il buffer di input come memoria di lavoro.
+
+L'immagine non è binaria ("tratto / non tratto") ma in scala di grigi, sia per la camera sia per MNIST: i pixel a cavallo del bordo del tratto sono coperti solo in parte, l'ottica introduce sfocatura e l'illuminazione non è uniforme. La rete è stata addestrata su cifre con bordi sfumati e si aspetta quindi questo tipo di input.
+
+Ricostruendo il testo come immagine si ottiene la figura `Doc/figures/2026-10-22_nine_chain.png`, che mostra il percorso di una cifra lungo la catena: (1) cifra MNIST sullo schermo, (2) fotogramma della camera a 32×32, con vignettatura e sfocatura, (3) input della rete dopo il pre-processing, (4) la stessa cifra come vista in addestramento. Il confronto tra (3) e (4) rende visibile il *domain shift*: tratto più spesso e saturo, occhiello più largo, residui negli angoli.
+
+## 13. Provenienza dei dati e validità dei test
+
+| Test | Immagini | Usate per i pesi? | Altri usi | Valore del risultato |
+|---|---|---|---|---|
+| Benchmark sulla scheda (`TEST_MODE 2`) | prime 500 del **test set** MNIST | no | le prime 200 sono anche il **set di calibrazione** della quantizzazione (`x_test[:200]`) | accuratezza del modello int8; il valore pulito è quello sulle 300 immagini mai usate |
+| Test Card con camera (set A, B, C) | immagini 0–236 del **training set** MNIST | no: rientrano nelle prime 6 000 riservate a *validation* (`x_train[:6000]`) | monitoraggio dell'addestramento; **regolazione del pre-processing** | generalizzazione *interna* allo stile MNIST; leggermente ottimistico |
+| Cifre scritte a mano (tablet, carta) | nuove | no | nessuno | unico test indipendente: da eseguire **una sola volta a parametri congelati** |
+
+Accuratezza del benchmark int8 (*direct*) suddivisa: 98,5% sulle 200 immagini di calibrazione, **95,7% sulle 300 mai usate**. La differenza non è statisticamente significativa con questi numeri, ma l'influenza della calibrazione va dichiarata.
+
+## 14. Benchmark sulla scheda e tempi (22/10/2026)
+
+Accuratezza su 500 immagini del test set MNIST, misurata sulla scheda:
+
+| Percorso | Accuratezza | IC 95% |
+|---|---|---|
+| Rete int8, input come in addestramento | 96,8% | ±1,5% |
+| + pre-processing originale | 94,4% | ±2,0% |
+| + pre-processing nuovo | 96,4% (96,0% con bordo di 3 px) | ±1,6% |
+
+Tempi misurati con il contatore di cicli del Cortex-M55 (800 MHz):
+
+| Fase | Tempo | Quota del ciclo con camera |
+|---|---|---|
+| Inferenza NPU | **118–120 µs** (≈ 23,7 GMAC/s) | 0,2% |
+| Pre-processing (modo 1) | 162–176 µs | 0,3% |
+| Acquisizione camera | 60,3 ms | 91% |
+| Display | 3,8 ms | 5,8% |
+| UART | 1,6 ms | 2,4% |
+| **Totale** | **66 ms → 15,1 fps** | 100% |
+
+Il sistema è limitato dalla camera: il sensore produce 30 fps, ma il firmware richiede un'istantanea solo a elaborazione conclusa e attende così circa due periodi del sensore. La rete neurale occupa lo 0,2% del tempo.
+
+## 15. Il caso del 9: analisi di un errore sistematico
+
+Con la camera il 9 viene letto come 8 su tutti e tre i set (A, B, C), mentre senza camera il modello riconosce correttamente 52 nove su 54. L'errore è quindi introdotto dal percorso ottico e dal pre-processing, non dalla rete.
+
+Ipotesi considerate, con la relativa obiezione:
+
+1. **Residui di vignettatura negli angoli** (figura §12, pannello 3): il segno in basso a sinistra potrebbe essere interpretato come parte del cerchio inferiore di un 8. *Obiezione:* gli stessi residui compaiono anche in cifre riconosciute correttamente. Test: azzerare una cornice di 3 pixel (`PREPROC_BORDER 3`), come nelle cifre MNIST. Primo controllo superato: sul benchmark il bordo non peggiora le cifre pulite (96,4% → 96,0%, entro l'incertezza).
+2. **Tratto troppo spesso e saturo**: il pre-processing porta a bianco pieno tutto ciò che supera il 70% del residuo massimo (`PREPROC_STRETCH 0,7`); un 9 "gonfio", con occhiello largo, si avvicina a un 8. Test previsto se l'ipotesi 1 non basta.
+
+Metodo: per ogni ipotesi la previsione è stata scritta prima del test (il 9 deve diventare corretto senza peggiorare le altre cifre), e i parametri vengono congelati prima dei test indipendenti su scrittura a mano.
+
 ## File di riferimento
 
 - `Application/Src/main.c` — ciclo principale, pre-processing (`PREPROC_MODE`), dump di debug (`DEBUG_DUMP_MS`).
@@ -186,4 +280,6 @@ Il collo di bottiglia non è l'architettura della rete (una CNN di questa taglia
 - `Doc/figures/` — figure del 19/10.
 - `Doc/logs/` — log UART grezzi delle prove.
 - `README.md` (nella cartella del progetto) — mappa delle cartelle e guida rapida.
+- `Application/Inc/mnist_test.h` — 500 immagini del test set MNIST per il benchmark sulla scheda.
+- Repository di partenza ST: `git remote upstream` → STM32N6-GettingStarted-ImageClassification v2.3.0.
 - `flash.ps1` — programmazione della scheda.
